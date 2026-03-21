@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,9 +27,6 @@ void main() async {
   // Initialize services
   final storage = await LocalStorage.getInstance();
   await AudioService.instance.init();
-  await AudioService.instance.preloadSounds(
-    AnimalsData.allAnimals.map((a) => a.soundAssetPath).toSet().toList(),
-  );
 
   runApp(
     ProviderScope(
@@ -35,6 +34,13 @@ void main() async {
         localStorageProvider.overrideWithValue(storage),
       ],
       child: const SoundZooApp(),
+    ),
+  );
+
+  // Do not block app startup; preload in background.
+  unawaited(
+    AudioService.instance.preloadSounds(
+      AnimalsData.allAnimals.map((a) => a.soundAssetPath).toSet().toList(),
     ),
   );
 }
