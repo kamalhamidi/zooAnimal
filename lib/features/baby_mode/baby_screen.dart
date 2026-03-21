@@ -25,9 +25,6 @@ class _BabyScreenState extends ConsumerState<BabyScreen> {
   Animal? _selectedAnimal;
   int _selectedColorIndex = 0;
 
-  // Parent lock - hold timer
-  DateTime? _holdStartTime;
-
   @override
   void initState() {
     super.initState();
@@ -98,20 +95,9 @@ class _BabyScreenState extends ConsumerState<BabyScreen> {
                 children: [
                   // Parent lock exit — hold for 3 seconds
                   GestureDetector(
-                    onLongPressStart: (_) {
-                      _holdStartTime = DateTime.now();
-                    },
-                    onLongPressEnd: (_) {
-                      if (_holdStartTime != null) {
-                        final held = DateTime.now()
-                            .difference(_holdStartTime!)
-                            .inSeconds;
-                        if (held >= 3) {
-                          HapticFeedback.heavyImpact();
-                          context.go('/');
-                        }
-                      }
-                      _holdStartTime = null;
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      context.go('/');
                     },
                     child: Container(
                       padding: const EdgeInsets.all(12),
