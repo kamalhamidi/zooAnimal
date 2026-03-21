@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/audio/audio_service.dart';
 import '../../core/models/animal.dart';
 import '../../data/animals_data.dart';
 
@@ -112,6 +113,7 @@ class GuessGameNotifier extends StateNotifier<GuessGameState> {
     List<Animal>? dailyQuestions,
   }) {
     _timer?.cancel();
+    AudioService.instance.stopAll();
 
     List<Animal> queue;
     if (isDaily && dailyQuestions != null) {
@@ -182,6 +184,7 @@ class GuessGameNotifier extends StateNotifier<GuessGameState> {
   }
 
   void _handleTimeout() {
+    AudioService.instance.stopAll();
     state = state.copyWith(
       status: GameStatus.roundEnd,
       timerActive: false,
@@ -194,6 +197,7 @@ class GuessGameNotifier extends StateNotifier<GuessGameState> {
   void selectAnswer(Animal answer) {
     if (state.status != GameStatus.playing) return;
     _timer?.cancel();
+    AudioService.instance.stopAll();
 
     final correct = state.currentAnimal;
     if (correct == null) return;
@@ -235,6 +239,7 @@ class GuessGameNotifier extends StateNotifier<GuessGameState> {
   }
 
   void nextRound() {
+    AudioService.instance.stopAll();
     final nextIndex = state.currentIndex + 1;
 
     if (nextIndex >= state.queue.length) {
@@ -264,12 +269,14 @@ class GuessGameNotifier extends StateNotifier<GuessGameState> {
 
   void endGame() {
     _timer?.cancel();
+    AudioService.instance.stopAll();
     state = state.copyWith(status: GameStatus.gameOver);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    AudioService.instance.stopAll();
     super.dispose();
   }
 }
