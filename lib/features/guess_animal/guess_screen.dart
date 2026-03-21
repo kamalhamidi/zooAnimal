@@ -32,6 +32,7 @@ class GuessScreen extends ConsumerStatefulWidget {
 
 class _GuessScreenState extends ConsumerState<GuessScreen> {
   late ConfettiController _confettiController;
+  bool _gameOverHandled = false;
 
   @override
   void initState() {
@@ -88,9 +89,9 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
               blastDirectionality: BlastDirectionality.explosive,
               shouldLoop: false,
               colors: const [
-                AppColors.primary,
-                AppColors.secondary,
-                AppColors.accent,
+                AppColors.primaryGreen,
+                AppColors.secondaryOrange,
+                AppColors.accentYellow,
                 AppColors.success,
               ],
               numberOfParticles: 30,
@@ -145,7 +146,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
                 decoration: BoxDecoration(
                   color: isDaily
                       ? AppColors.coinGold.withValues(alpha: 0.15)
-                      : AppColors.primary.withValues(alpha: 0.1),
+                      : AppColors.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                   border: isDaily
                       ? Border.all(color: AppColors.coinGold.withValues(alpha: 0.3))
@@ -183,7 +184,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
                     : AppColors.primaryGradient,
                 shape: BoxShape.circle,
                 boxShadow: AppColors.glowShadow(
-                  isDaily ? AppColors.coinGold : AppColors.primary,
+                  isDaily ? AppColors.coinGold : AppColors.primaryGreen,
                 ),
               ),
               child: const Center(
@@ -322,10 +323,10 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.1),
+              color: AppColors.accentYellow.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
               border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.3),
+                color: AppColors.accentYellow.withValues(alpha: 0.3),
               ),
             ),
             child: Row(
@@ -366,7 +367,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
                     style: GoogleFonts.fredoka(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.coinGoldDark,
+                      color: AppColors.accentGolden,
                     ),
                   ),
                 ],
@@ -388,7 +389,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
               decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient,
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                boxShadow: AppColors.glowShadow(AppColors.primary),
+                boxShadow: AppColors.glowShadow(AppColors.primaryGreen),
               ),
               child: Center(
                 child: Text(
@@ -412,20 +413,27 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
 
   Widget _buildGameOver(GuessGameState gameState) {
     // Award coins
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (gameState.totalCoins > 0) {
-        ref.read(coinProvider.notifier).addCoins(gameState.totalCoins);
-      }
-      ref.read(statsProvider.notifier).addScore(gameState.score);
-      ref.read(statsProvider.notifier).updateBestStreak(gameState.bestStreak);
-      ref.read(statsProvider.notifier).incrementGamesPlayed();
-      ref.read(statsProvider.notifier).addCoinsEarned(gameState.totalCoins);
+    if (!_gameOverHandled) {
+      _gameOverHandled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (gameState.totalCoins > 0) {
+          ref.read(coinProvider.notifier).addCoins(gameState.totalCoins);
+        }
+        ref.read(statsProvider.notifier).addScore(gameState.score);
+        ref.read(statsProvider.notifier).updateBestStreak(gameState.bestStreak);
+        ref.read(statsProvider.notifier).incrementGamesPlayed();
+        ref.read(statsProvider.notifier).addCoinsEarned(gameState.totalCoins);
 
-      if (gameState.stars == 3) {
-        _confettiController.play();
-      }
-      HapticFeedback.heavyImpact();
-    });
+        if (gameState.isDaily) {
+          ref.read(dailyChallengeProvider.notifier).updateHighScore(gameState.score);
+        }
+
+        if (gameState.stars == 3) {
+          _confettiController.play();
+        }
+        HapticFeedback.heavyImpact();
+      });
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -438,7 +446,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
               style: GoogleFonts.fredoka(
                 fontSize: 36,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primary,
+                color: AppColors.primaryGreen,
               ),
             ).animate().fadeIn(duration: 500.ms),
             const SizedBox(height: 24),
@@ -477,7 +485,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
               ),
               child: Column(
                 children: [
-                  _buildScoreRow('Score', '${gameState.score}', AppColors.primary),
+                  _buildScoreRow('Score', '${gameState.score}', AppColors.primaryGreen),
                   const SizedBox(height: 16),
                   _buildScoreRow(
                     'Correct',
@@ -503,7 +511,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
                         style: GoogleFonts.fredoka(
                           fontSize: 24,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.coinGoldDark,
+                          color: AppColors.accentGolden,
                         ),
                       ),
                     ],
@@ -519,9 +527,12 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
                   child: GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
+                      _gameOverHandled = false;
                       ref.read(guessGameProvider.notifier).startGame(
                             difficulty: gameState.difficulty,
                             isDaily: gameState.isDaily,
+                            dailyQuestions:
+                                gameState.isDaily ? gameState.queue : null,
                           );
                     },
                     child: Container(
@@ -549,6 +560,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
                   child: GestureDetector(
                     onTap: () {
                       HapticFeedback.lightImpact();
+                      _gameOverHandled = false;
                       context.go('/');
                     },
                     child: Container(

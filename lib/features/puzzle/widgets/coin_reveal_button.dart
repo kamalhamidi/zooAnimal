@@ -28,12 +28,12 @@ class CoinRevealButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: enabled
-              ? AppColors.accent.withValues(alpha: 0.15)
+              ? AppColors.accentYellow.withValues(alpha: 0.15)
               : Colors.grey.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
           border: Border.all(
             color: enabled
-                ? AppColors.accent.withValues(alpha: 0.4)
+                ? AppColors.accentYellow.withValues(alpha: 0.4)
                 : Colors.grey.withValues(alpha: 0.2),
             width: 1.5,
           ),
@@ -44,7 +44,7 @@ class CoinRevealButton extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: enabled ? AppColors.coinGoldDark : Colors.grey,
+              color: enabled ? AppColors.accentGolden : Colors.grey,
             ),
             const SizedBox(width: 6),
             Flexible(
@@ -80,7 +80,7 @@ class CoinRevealButton extends StatelessWidget {
                     style: GoogleFonts.robotoMono(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: enabled ? AppColors.coinGoldDark : Colors.grey,
+                      color: enabled ? AppColors.accentGolden : Colors.grey,
                     ),
                   ),
                 ],

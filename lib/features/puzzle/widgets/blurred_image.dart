@@ -34,8 +34,8 @@ class BlurredImage extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.secondary.withValues(alpha: 0.2),
-                    AppColors.primary.withValues(alpha: 0.2),
+                    AppColors.secondaryOrange.withValues(alpha: 0.2),
+                    AppColors.primaryGreen.withValues(alpha: 0.2),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,

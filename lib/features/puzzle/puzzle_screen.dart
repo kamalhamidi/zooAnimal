@@ -76,9 +76,9 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
               blastDirectionality: BlastDirectionality.explosive,
               shouldLoop: false,
               colors: const [
-                AppColors.primary,
-                AppColors.secondary,
-                AppColors.accent,
+                AppColors.primaryGreen,
+                AppColors.secondaryOrange,
+                AppColors.accentYellow,
                 AppColors.success,
               ],
               numberOfParticles: 25,
@@ -156,17 +156,17 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                 '${puzzleState.attempts} left',
                 puzzleState.attempts <= 1
                     ? AppColors.error
-                    : AppColors.secondary,
+                    : AppColors.secondaryOrange,
               ),
               _buildStatusChip(
                 '🪙',
                 '$coins coins',
-                AppColors.coinGoldDark,
+                AppColors.accentGolden,
               ),
               _buildStatusChip(
                 '⭐',
                 'Score: ${puzzleState.score}',
-                AppColors.primary,
+                AppColors.primaryGreen,
               ),
             ],
           ),
@@ -313,7 +313,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                     style: GoogleFonts.fredoka(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.coinGoldDark,
+                      color: AppColors.accentGolden,
                     ),
                   ),
                 ],
@@ -477,7 +477,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                 style: GoogleFonts.robotoMono(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
+                  color: AppColors.primaryGreen,
                 ),
               ),
             ],

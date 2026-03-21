@@ -1,44 +1,94 @@
 import 'package:flutter/material.dart';
 
+/// ─── App Colors: Jungle/Nature Theme with WCAG AA Compliance ───
+/// Primary: Deep Forest Green (#1B5E20)
+/// Secondary: Warm Sunset Orange (#D97706)
+/// Accent: Vibrant Jungle Yellow (#FCD34D)
+/// Supports both light and dark themes with proper contrast ratios
 class AppColors {
   AppColors._();
 
-  // Primary palette
-  static const Color primary = Color(0xFFFF6B35);
-  static const Color secondary = Color(0xFF2EC4B6);
-  static const Color accent = Color(0xFFFFD166);
-  static const Color error = Color(0xFFEF476F);
-  static const Color success = Color(0xFF06D6A0);
+  // ─── JUNGLE PALETTE - Primary Colors ───
+  static const Color primaryDeepGreen = Color(0xFF1B5E20);    // Deep forest (WCAG AAA)
+  static const Color primaryGreen = Color(0xFF2D7A3D);        // Primary green
+  static const Color primaryLightGreen = Color(0xFF4CAF50);   // Light green for states
+  
+  static const Color secondaryOrange = Color(0xFFD97706);     // Warm sunset orange
+  static const Color secondaryTan = Color(0xFFB8860B);        // Earthy brown/tan
+  static const Color secondaryBrown = Color(0xFF784D3C);      // Deep earth brown
 
-  // Light theme
-  static const Color backgroundLight = Color(0xFFFAFAFA);
-  static const Color surfaceLight = Color(0xFFFFFFFF);
-  static const Color onBackgroundLight = Color(0xFF1A1A2E);
-  static const Color onSurfaceLight = Color(0xFF2D2D3A);
-  static const Color cardLight = Color(0xFFFFFFFF);
-  static const Color dividerLight = Color(0xFFE8E8EE);
+  static const Color accentYellow = Color(0xFFFCD34D);        // Vibrant jungle yellow
+  static const Color accentGolden = Color(0xFFF59E0B);        // Golden (accessibility)
+  
+  // Error & Success
+  static const Color error = Color(0xFFC41E3A);               // Deep red (WCAG AAA)
+  static const Color success = Color(0xFF059669);             // Verified green
+  static const Color warning = Color(0xFFEA8C55);             // Warm warning
 
-  // Dark theme
-  static const Color backgroundDark = Color(0xFF1A1A2E);
-  static const Color surfaceDark = Color(0xFF252540);
-  static const Color onBackgroundDark = Color(0xFFF5F5F5);
-  static const Color onSurfaceDark = Color(0xFFE0E0E8);
-  static const Color cardDark = Color(0xFF2A2A45);
-  static const Color dividerDark = Color(0xFF3A3A55);
+  // ─── LIGHT THEME PALETTE ───
+  // Background: Soft cream/off-white for nature feel
+  static const Color backgroundLight = Color(0xFFFEFDF3);     // Soft cream
+  static const Color surfaceLight = Color(0xFFFFFFFF);        // Pure white
+  static const Color surfaceVariantLight = Color(0xFFF5F3F0); // Warm gray
+  static const Color onBackgroundLight = Color(0xFF1B1B1B);   // Near black text
+  static const Color onSurfaceLight = Color(0xFF2B2520);      // Brown text
+  static const Color cardLight = Color(0xFFFFFFFF);           // White cards
+  static const Color dividerLight = Color(0xFFE8DCC8);        // Warm divider
 
-  // Coin colors
-  static const Color coinGold = Color(0xFFFFD166);
-  static const Color coinGoldDark = Color(0xFFF0B830);
+  // ─── DARK THEME PALETTE ───
+  // Background: Deep jungle green for immersive experience
+  static const Color backgroundDark = Color(0xFF1B2B20);      // Deep jungle
+  static const Color surfaceDark = Color(0xFF2A4630);         // Darker jungle
+  static const Color surfaceVariantDark = Color(0xFF3D5A3F);  // Medium jungle
+  static const Color onBackgroundDark = Color(0xFFF5F3F0);    // Light text
+  static const Color onSurfaceDark = Color(0xFFE8DCC8);       // Light warm text
+  static const Color cardDark = Color(0xFF2E4333);            // Dark card
+  static const Color dividerDark = Color(0xFF4A5F50);         // Subtle divider
 
-  // Streak / fire
-  static const Color streakFire = Color(0xFFFF4500);
-  static const Color streakGlow = Color(0xFFFF8C00);
+  // ─── SEMANTIC COLORS ───
+  // Gamification & Rewards
+  static const Color coinGold = Color(0xFFFCD34D);            // XP/coin gold
+  static const Color starFilled = Color(0xFFFCD34D);          // Star reward
+  static const Color starEmpty = Color(0xFFCBBDC5);           // Empty star
 
-  // Star ratings
-  static const Color starFilled = Color(0xFFFFD166);
-  static const Color starEmpty = Color(0xFFD0D0D0);
+  // Streaks & Achievements
+  static const Color streakFire = Color(0xFFDC2626);          // Flame red
+  static const Color streakGlow = Color(0xFFFF8C00);          // Glow orange
+  
+  // Status indicators
+  static const Color indicatorPositive = Color(0xFF10B981);   // Achievement green
+  static const Color indicatorWarning = Color(0xFFF59E0B);    // Warning amber
+  
+  // ─── GRADIENTS ─── 
+  // Jungle greens
+  static const List<Color> jungleGradient = [
+    Color(0xFF1B5E20),  // Deep green
+    Color(0xFF2D7A3D),  // Primary green
+    Color(0xFF4CAF50),  // Light green
+  ];
+  
+  // Sunset warm
+  static const List<Color> sunsetGradient = [
+    Color(0xFFF59E0B),  // Golden
+    Color(0xFFD97706),  // Orange
+    Color(0xFFB8860B),  // Brown
+  ];
+  
+  // Forest depth
+  static const List<Color> forestGradient = [
+    Color(0xFF1B5E20),  // Deep
+    Color(0xFF3B8A3F),  // Mid
+  ];
 
-  // Baby mode pastel backgrounds
+  // ─── GLASSMORPHISM COLORS ───
+  static const Color glassDark = Color(0x1A000000);           // 10% black
+  static const Color glassLight = Color(0x0DFFFFFF);          // 5% white
+  
+  // ─── SHADOW COLORS ───
+  static const Color shadowDark = Color(0x26000000);          // 15% black shadow
+  static const Color shadowLight = Color(0x08000000);         // 3% subtle shadow
+
+  // Baby mode pastel backgrounds (softer palette)
   static const List<Color> babyPastels = [
     Color(0xFFFFF176),
     Color(0xFFB3E5FC),

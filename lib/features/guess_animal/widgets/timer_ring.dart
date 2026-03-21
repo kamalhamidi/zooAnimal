@@ -17,7 +17,7 @@ class TimerRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = (timeRemaining / maxTime).clamp(0.0, 1.0);
     final isWarning = timeRemaining < 3.0;
-    final color = isWarning ? AppColors.error : AppColors.secondary;
+    final color = isWarning ? AppColors.error : AppColors.secondaryOrange;
 
     return SizedBox(
       width: 80,

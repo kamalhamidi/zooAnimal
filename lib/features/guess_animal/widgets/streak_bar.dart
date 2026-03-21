@@ -17,7 +17,7 @@ class StreakBar extends StatelessWidget {
         gradient: LinearGradient(
           colors: streak >= 3
               ? [AppColors.streakFire, AppColors.streakGlow]
-              : [AppColors.primary.withValues(alpha: 0.8), AppColors.primary],
+              : [AppColors.primaryGreen.withValues(alpha: 0.8), AppColors.primaryGreen],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: streak >= 3

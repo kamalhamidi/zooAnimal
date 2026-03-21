@@ -163,7 +163,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     title: 'Guess the Animal',
                     description: 'Can you identify it?',
                     gradient: AppColors.primaryGradient,
-                    shadowColor: AppColors.primary,
+                    shadowColor: AppColors.primaryGreen,
                     onTap: () => _showDifficultyPicker(context),
                     index: 0,
                   ),
@@ -173,7 +173,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     title: 'Sound Puzzle',
                     description: 'Reveal the mystery animal',
                     gradient: AppColors.secondaryGradient,
-                    shadowColor: AppColors.secondary,
+                    shadowColor: AppColors.secondaryOrange,
                     onTap: () => context.push('/puzzle'),
                     index: 1,
                   ),
@@ -183,7 +183,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     title: 'Baby Mode',
                     description: 'Tap & learn!',
                     gradient: AppColors.accentGradient,
-                    shadowColor: AppColors.accent,
+                    shadowColor: AppColors.accentYellow,
                     onTap: () => context.push('/baby'),
                     index: 2,
                   ),
@@ -215,10 +215,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.15),
+            color: AppColors.accentYellow.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(AppTheme.radiusPill),
             border: Border.all(
-              color: AppColors.accent.withValues(alpha: 0.3),
+              color: AppColors.accentYellow.withValues(alpha: 0.3),
               width: 1.5,
             ),
           ),
@@ -232,7 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 style: GoogleFonts.fredoka(
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.coinGoldDark,
+                  color: AppColors.accentGolden,
                 ),
               ),
             ],
@@ -278,7 +278,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           style: GoogleFonts.fredoka(
             fontSize: 42,
             fontWeight: FontWeight.w700,
-            color: AppColors.primary,
+            color: AppColors.primaryGreen,
             letterSpacing: 1,
           ),
         )
@@ -442,9 +442,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ),
               GestureDetector(
                 onTap: daily.isAvailable
-                    ? () {
+                    ? () async {
                         HapticFeedback.lightImpact();
-                        context.push('/guess?daily=true');
+                        final canPlay = await ref
+                            .read(dailyChallengeProvider.notifier)
+                            .consumeAttempt();
+                        if (canPlay && mounted) {
+                          context.push('/guess?daily=true');
+                        }
                       }
                     : null,
                 child: Container(
@@ -504,7 +509,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               style: GoogleFonts.fredoka(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+                color: AppColors.primaryGreen,
               ),
             ),
             const SizedBox(height: 2),
