@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +5,6 @@ import 'app/app.dart';
 import 'core/audio/audio_service.dart';
 import 'core/storage/local_storage.dart';
 import 'core/providers/coin_provider.dart';
-import 'data/animals_data.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,13 +31,6 @@ void main() async {
         localStorageProvider.overrideWithValue(storage),
       ],
       child: const SoundZooApp(),
-    ),
-  );
-
-  // Do not block app startup; preload in background.
-  unawaited(
-    AudioService.instance.preloadSounds(
-      AnimalsData.allAnimals.map((a) => a.soundAssetPath).toSet().toList(),
     ),
   );
 }

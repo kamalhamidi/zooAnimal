@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/landing/landing_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/guess_animal/guess_screen.dart';
 import '../../features/puzzle/puzzle_screen.dart';
@@ -9,8 +10,19 @@ class AppRouter {
   AppRouter._();
 
   static final GoRouter router = GoRouter(
-    initialLocation: '/',
+    initialLocation: '/landing',
     routes: [
+      GoRoute(
+        path: '/landing',
+        name: 'landing',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const LandingScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
+      ),
       GoRoute(
         path: '/',
         name: 'home',

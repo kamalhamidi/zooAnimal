@@ -130,6 +130,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 24),
                   // ─── Logo & Title ───
                   _buildLogo(),
+                  const SizedBox(height: 16),
+                  // ─── Stats Row (moved to top under title) ───
+                  _buildStatsRow(stats),
                   if (AudioService.instance.isPlaceholderAudioMode) ...[
                     const SizedBox(height: 10),
                     Container(
@@ -190,9 +193,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 24),
                   // ─── Daily Challenge Banner ───
                   _buildDailyChallenge(daily),
-                  const SizedBox(height: 24),
-                  // ─── Stats Row ───
-                  _buildStatsRow(stats),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -373,27 +373,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildDailyChallenge(DailyChallengeState daily) {
+    final remainingAttempts = (daily.maxAttempts - daily.attemptsUsed).clamp(0, daily.maxAttempts);
+    final challengeProgress = daily.maxAttempts == 0
+        ? 0.0
+        : (daily.attemptsUsed / daily.maxAttempts).clamp(0.0, 1.0);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppColors.goldenGradient,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryDeepGreen,
+            AppColors.primaryGreen,
+            AppColors.secondaryOrange,
+          ],
+        ),
         borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppColors.glowShadow(AppColors.coinGold),
+        boxShadow: AppColors.glowShadow(AppColors.primaryGreen),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Text('⭐', style: TextStyle(fontSize: 24)),
-              const SizedBox(width: 8),
-              Text(
-                'Daily Challenge',
-                style: GoogleFonts.fredoka(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.brown[800],
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                ),
+                child: const Center(
+                  child: Text('🗿', style: TextStyle(fontSize: 24)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mystery Totem Challenge',
+                      style: GoogleFonts.fredoka(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Unique sounds today • beat your best score',
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Spacer(),
@@ -401,19 +441,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.brown[800]?.withValues(alpha: 0.15),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppTheme.radiusPill),
                 ),
                 child: Text(
-                  '${daily.attemptsUsed}/${daily.maxAttempts}',
+                  '$remainingAttempts left',
                   style: GoogleFonts.robotoMono(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Colors.brown[800],
+                    color: Colors.white,
                   ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: challengeProgress,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.accentYellow,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -426,16 +485,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     'Resets in',
                     style: GoogleFonts.nunito(
                       fontSize: 13,
-                      color: Colors.brown[600],
+                      color: Colors.white.withValues(alpha: 0.85),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   Text(
                     _formatDuration(_timeUntilReset),
                     style: GoogleFonts.robotoMono(
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Colors.brown[800],
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Best: ${daily.highScore}',
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.accentYellow,
                     ),
                   ),
                 ],
@@ -457,8 +525,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       horizontal: 24, vertical: 12),
                   decoration: BoxDecoration(
                     color: daily.isAvailable
-                        ? Colors.brown[800]
-                        : Colors.brown[400],
+                        ? AppColors.accentYellow
+                        : Colors.white.withValues(alpha: 0.25),
                     borderRadius:
                         BorderRadius.circular(AppTheme.radiusPill),
                   ),
@@ -467,7 +535,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     style: GoogleFonts.fredoka(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: daily.isAvailable
+                          ? AppColors.primaryDeepGreen
+                          : Colors.white,
                     ),
                   ),
                 ),

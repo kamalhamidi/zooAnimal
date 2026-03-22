@@ -28,6 +28,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
 
 flutter:
   uses-material-design: true
@@ -36,3 +37,8 @@ flutter:
     - assets/sounds/
     - assets/images/
     - assets/lottie/
+
+flutter_launcher_icons:
+  ios: true
+  image_path: assets/images/app_icon.png
+  remove_alpha_ios: true
