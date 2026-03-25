@@ -340,16 +340,18 @@ class _BouncyButtonState extends State<BouncyButton>
           button: true,
           enabled: widget.enabled,
           label: widget.semanticLabel,
-          child: Container(
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.backgroundColor ?? AppColors.primaryGreen,
-              boxShadow: widget.enabled ? AppTheme.shadowLarge : [],
-              opacity: widget.enabled ? 1.0 : 0.5,
+          child: Opacity(
+            opacity: widget.enabled ? 1.0 : 0.5,
+            child: Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.backgroundColor ?? AppColors.primaryGreen,
+                boxShadow: widget.enabled ? AppTheme.shadowLarge : [],
+              ),
+              child: widget.child,
             ),
-            child: widget.child,
           ),
         ),
       ),

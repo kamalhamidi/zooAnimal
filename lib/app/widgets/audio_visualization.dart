@@ -1,6 +1,8 @@
 /// ─── Audio Visualization & Haptics ───
 /// Waveform animation synced to audio, haptic feedback, and audio utilities.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -201,8 +203,6 @@ class _AnimatedWaveformState extends State<AnimatedWaveform>
     );
   }
 }
-
-import 'dart:math' as math;
 
 // ─── SOUND FREQUENCY VISUALIZER ───
 

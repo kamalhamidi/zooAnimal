@@ -1,8 +1,11 @@
 /// ─── Gamification System ───
 /// Manages XP, stars, progress bars, daily streaks, and unlockable stickers.
 
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/storage/local_storage.dart';
+import 'coin_provider.dart';
 
 // ─── MODELS ───
 
@@ -84,6 +87,18 @@ class PlayerProgress {
       achievements: achievements ?? this.achievements,
     );
   }
+
+  /// Calculate category completion percentage
+  double getCategoryProgress(String category, int totalAnimals) {
+    final completed = categoryProgress[category] ?? 0;
+    return (completed / totalAnimals).clamp(0.0, 1.0);
+  }
+
+  /// Get streak bonus multiplier (1.0 base, +0.05 per consecutive day, max 1.5)
+  double getStreakMultiplier() {
+    if (!streakActive) return 1.0;
+    return 1.0 + (currentStreak * 0.05).clamp(0.0, 0.5);
+  }
 }
 
 // ─── HELPERS ───
@@ -98,8 +113,6 @@ int _totalXpForLevel(int level) {
   }
   return total;
 }
-
-import 'dart:math' as math;
 
 // ─── STATE NOTIFIER ───
 
@@ -325,9 +338,4 @@ final achievementsProvider = Provider<List<String>>((ref) {
 /// Watch streak multiplier
 final streakMultiplierProvider = Provider<double>((ref) {
   return ref.watch(gamificationProvider).getStreakMultiplier();
-});
-
-/// Local storage provider (must be implemented)
-final localStorageProvider = Provider<LocalStorage>((ref) {
-  return LocalStorage();
 });
