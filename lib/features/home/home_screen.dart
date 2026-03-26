@@ -9,6 +9,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
 import '../../core/audio/audio_service.dart';
+import '../../core/ads/banner_ad_widget.dart';
 import '../../core/models/player_stats.dart';
 import '../../core/providers/coin_provider.dart';
 import '../../core/providers/stats_provider.dart';
@@ -23,9 +24,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin {
+  static bool _hasSkippedFirstBanner = false;
+
   late AnimationController _bgAnimController;
   Timer? _dailyTimer;
+  Timer? _bannerDelayTimer;
   Duration _timeUntilReset = Duration.zero;
+  bool _showBannerAd = true;
 
   final List<_FloatingEmoji> _floatingEmojis = [];
   final _random = Random();
@@ -56,6 +61,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Daily countdown timer
     _startDailyTimer();
+
+    // Skip first ad impression on first HomeScreen open.
+    if (!_hasSkippedFirstBanner) {
+      _hasSkippedFirstBanner = true;
+      _showBannerAd = false;
+      _bannerDelayTimer = Timer(const Duration(seconds: 15), () {
+        if (!mounted) return;
+        setState(() => _showBannerAd = true);
+      });
+    }
   }
 
   void _startDailyTimer() {
@@ -74,6 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _bgAnimController.dispose();
     _dailyTimer?.cancel();
+    _bannerDelayTimer?.cancel();
     super.dispose();
   }
 
@@ -92,6 +108,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.only(bottom: 10, top: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.92),
+            border: Border(
+              top: BorderSide(color: Colors.black.withValues(alpha: 0.07)),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: _showBannerAd
+              ? const BannerAdWidget()
+              : const SizedBox(
+                  width: 320,
+                  height: 50,
+                  child: Center(
+                    child: Text(
+                      'Ads start shortly…',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ),
       body: Stack(
         children: [
           // Background floating emojis

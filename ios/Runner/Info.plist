@@ -65,6 +65,15 @@
 	<string>SoundZoo may use the microphone for future multiplayer features.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>SoundZoo may use speech recognition for voice-based gameplay.</string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~3347511713</string>
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 </dict>
 </plist>
 
