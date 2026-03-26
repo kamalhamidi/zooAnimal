@@ -356,6 +356,18 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                     : () async {
                         setState(() => _isRewardFlowInProgress = true);
 
+                        final ready = await RewardedAdManager.instance.ensureLoaded();
+                        if (!ready) {
+                          if (!mounted) return;
+                          setState(() => _isRewardFlowInProgress = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Rewarded ad is still loading. Please try again in a few seconds.'),
+                            ),
+                          );
+                          return;
+                        }
+
                         final shown = await RewardedAdManager.instance.showAd(
                           from: context,
                           rewardHandler: () {

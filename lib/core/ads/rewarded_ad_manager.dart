@@ -9,6 +9,7 @@ class RewardedAdManager {
 
   RewardedAd? _ad;
   bool _isLoading = false;
+  int _retryCount = 0;
 
   bool get isReady => _ad != null;
 
@@ -23,15 +24,31 @@ class RewardedAdManager {
         onAdLoaded: (ad) {
           _ad = ad;
           _isLoading = false;
+          _retryCount = 0;
           _attachFullScreenDelegate(ad);
           debugPrint('RewardedAdManager: ad loaded');
         },
         onAdFailedToLoad: (error) {
           _isLoading = false;
           debugPrint('RewardedAdManager: failed to load - $error');
+          _scheduleRetry();
         },
       ),
     );
+  }
+
+  Future<bool> ensureLoaded({Duration timeout = const Duration(seconds: 10)}) async {
+    if (_ad != null) return true;
+
+    loadAd();
+    final end = DateTime.now().add(timeout);
+
+    while (DateTime.now().isBefore(end)) {
+      if (_ad != null) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    }
+
+    return _ad != null;
   }
 
   Future<bool> showAd({
@@ -65,5 +82,15 @@ class RewardedAdManager {
         loadAd();
       },
     );
+  }
+
+  void _scheduleRetry() {
+    _retryCount++;
+    final seconds = _retryCount > 5 ? 10 : _retryCount * 2;
+    Future<void>.delayed(Duration(seconds: seconds), () {
+      if (_ad == null) {
+        loadAd();
+      }
+    });
   }
 }

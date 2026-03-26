@@ -13,7 +13,7 @@ class AdConfig {
   // These show a clear "Test Ad" badge.
   // IMPORTANT: bannerId must always be a BANNER ad unit.
   static const String bannerId = 'ca-app-pub-3940256099942544/2934735716';
-  static const String interstitialId = 'ca-app-pub-7347264977043529/7582010188';
-  static const String rewardedId = 'ca-app-pub-7347264977043529/8807461942';
+  static const String interstitialId = 'ca-app-pub-3940256099942544/4411468910';
+  static const String rewardedId = 'ca-app-pub-3940256099942544/1712485313';
   static const String appOpenId = '';
 }
