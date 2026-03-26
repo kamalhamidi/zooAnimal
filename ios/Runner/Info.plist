@@ -65,6 +65,8 @@
 	<string>SoundZoo may use the microphone for future multiplayer features.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>SoundZoo may use speech recognition for voice-based gameplay.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to deliver personalized ads and improve ad experience.</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~3347511713</string>
 	<key>SKAdNetworkItems</key>

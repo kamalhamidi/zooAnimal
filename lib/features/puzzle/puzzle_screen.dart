@@ -7,6 +7,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:confetti/confetti.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
+import '../../core/ads/footer_banner_bar.dart';
+import '../../core/ads/interstitial_ad_manager.dart';
+import '../../core/ads/rewarded_ad_manager.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/providers/coin_provider.dart';
 import '../../core/providers/stats_provider.dart';
@@ -26,6 +29,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
   final TextEditingController _guessController = TextEditingController();
   late ConfettiController _confettiController;
   bool _showCollection = false;
+  bool _isRewardFlowInProgress = false;
 
   @override
   void initState() {
@@ -62,6 +66,7 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
+      bottomNavigationBar: const FooterBannerBar(),
       body: Stack(
         children: [
           SafeArea(
@@ -342,6 +347,57 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isRewardFlowInProgress
+                    ? null
+                    : () async {
+                        setState(() => _isRewardFlowInProgress = true);
+
+                        final shown = await RewardedAdManager.instance.showAd(
+                          from: context,
+                          rewardHandler: () {
+                            ref.read(puzzleProvider.notifier).grantExtraLife();
+                            final currentAnimal = ref.read(puzzleProvider).currentAnimal;
+                            if (currentAnimal != null) {
+                              AudioService.instance.playSound(currentAnimal.soundAssetPath);
+                            }
+                          },
+                        );
+
+                        if (!mounted) return;
+                        setState(() => _isRewardFlowInProgress = false);
+
+                        if (!shown) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Rewarded ad is not ready yet. Please try again shortly.'),
+                            ),
+                          );
+                        }
+                      },
+                icon: const Icon(Icons.ondemand_video_rounded),
+                label: Text(
+                  _isRewardFlowInProgress
+                      ? 'Loading ad...'
+                      : 'Watch ad for extra life',
+                  style: GoogleFonts.fredoka(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: AppColors.primaryGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             _buildActionButtons(),
           ],
@@ -356,8 +412,9 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
       children: [
         Expanded(
           child: GestureDetector(
-            onTap: () {
+            onTap: () async {
               HapticFeedback.lightImpact();
+              await InterstitialAdManager.instance.showAd(viewController: context);
               _guessController.clear();
               ref.read(puzzleProvider.notifier).startNewPuzzle();
               Future.delayed(const Duration(milliseconds: 500), () {
@@ -389,8 +446,9 @@ class _PuzzleScreenState extends ConsumerState<PuzzleScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: GestureDetector(
-            onTap: () {
+            onTap: () async {
               HapticFeedback.lightImpact();
+              await InterstitialAdManager.instance.showAd(viewController: context);
               context.go('/');
             },
             child: Container(

@@ -154,6 +154,16 @@ class PuzzleNotifier extends StateNotifier<PuzzleState> {
   void updateGuessText(String text) {
     state = state.copyWith(guessText: text);
   }
+
+  void grantExtraLife({int lives = 1}) {
+    if (lives <= 0) return;
+
+    state = state.copyWith(
+      attempts: state.attempts + lives,
+      status: PuzzleStatus.playing,
+      lastGuessCorrect: null,
+    );
+  }
 }
 
 final puzzleProvider =

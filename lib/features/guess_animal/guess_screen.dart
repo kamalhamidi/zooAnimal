@@ -7,6 +7,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:confetti/confetti.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
+import '../../core/ads/footer_banner_bar.dart';
+import '../../core/ads/interstitial_ad_manager.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/providers/coin_provider.dart';
 import '../../core/providers/stats_provider.dart';
@@ -76,6 +78,7 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
     final gameState = ref.watch(guessGameProvider);
 
     return Scaffold(
+      bottomNavigationBar: const FooterBannerBar(),
       body: Stack(
         children: [
           SafeArea(
@@ -432,6 +435,8 @@ class _GuessScreenState extends ConsumerState<GuessScreen> {
           _confettiController.play();
         }
         HapticFeedback.heavyImpact();
+
+        InterstitialAdManager.instance.showAd(viewController: context);
       });
     }
 

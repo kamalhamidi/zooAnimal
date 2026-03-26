@@ -161,6 +161,11 @@ class AdService {
 
   // ─── APP OPEN ───
   void loadAppOpenAd() {
+    if (!AdConfig.enableAppOpenAds || AdConfig.appOpenId.isEmpty) {
+      _isAppOpenReady = false;
+      return;
+    }
+
     AppOpenAd.load(
       adUnitId: AdConfig.appOpenId,
       request: const AdRequest(),
@@ -179,7 +184,11 @@ class AdService {
   }
 
   Future<void> showAppOpenAd() async {
-    // App Open ads disabled.
+    if (!AdConfig.enableAppOpenAds) {
+      return;
+    }
+
+    // Intentionally no-op for now.
     return;
   }
 

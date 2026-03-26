@@ -2,12 +2,18 @@
 class AdConfig {
   AdConfig._();
 
-  // ─── APP ID ───
-  static const String appId = 'ca-app-pub-3940256099942544~3347511713';
+  // Global ad switches
+  static const bool enableAppOpenAds = false;
 
-  // ─── AD UNIT IDS (test IDs) ───
-  static const String bannerId = 'ca-app-pub-3940256099942544/9214589741';
-  static const String interstitialId = 'ca-app-pub-3940256099942544/1033173712';
-  static const String rewardedId = 'ca-app-pub-3940256099942544/5224354917';
-  static const String appOpenId = 'ca-app-pub-3940256099942544/5575463023';
+  // ─── APP ID ───
+  // Using Google sample App ID for test mode.
+  static const String appId = 'ca-app-pub-7347264977043529~7238928088';
+
+  // ─── AD UNIT IDS (Google official TEST IDs) ───
+  // These show a clear "Test Ad" badge.
+  // IMPORTANT: bannerId must always be a BANNER ad unit.
+  static const String bannerId = 'ca-app-pub-3940256099942544/2934735716';
+  static const String interstitialId = 'ca-app-pub-7347264977043529/7582010188';
+  static const String rewardedId = 'ca-app-pub-7347264977043529/8807461942';
+  static const String appOpenId = '';
 }

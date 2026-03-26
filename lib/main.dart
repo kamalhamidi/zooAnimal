@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app/app.dart';
 import 'core/audio/audio_service.dart';
 import 'core/ads/ad_service.dart';
+import 'core/ads/interstitial_ad_manager.dart';
+import 'core/ads/rewarded_ad_manager.dart';
 import 'core/storage/local_storage.dart';
 import 'core/providers/coin_provider.dart';
 
@@ -51,6 +53,8 @@ void main() async {
 
     try {
       await AdService.instance.init();
+      InterstitialAdManager.instance.loadAd();
+      RewardedAdManager.instance.loadAd();
     } catch (e) {
       debugPrint('Failed to init AdService: $e');
     }

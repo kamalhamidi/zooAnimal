@@ -23,7 +23,10 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   @override
   void initState() {
     super.initState();
-    _loadAd();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadAd();
+    });
   }
 
   void _loadAd() {
@@ -87,4 +90,9 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       ),
     );
   }
+}
+
+/// UIKit-style naming alias for a reusable banner ad view.
+class BannerAdView extends BannerAdWidget {
+  const BannerAdView({super.key, super.adSize});
 }

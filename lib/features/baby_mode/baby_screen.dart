@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
+import '../../core/ads/footer_banner_bar.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/models/animal.dart';
 import '../../data/animals_data.dart';
@@ -83,6 +84,7 @@ class _BabyScreenState extends ConsumerState<BabyScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.babyPastels[0],
+      bottomNavigationBar: const FooterBannerBar(),
       body: SafeArea(
         child: Column(
           children: [
