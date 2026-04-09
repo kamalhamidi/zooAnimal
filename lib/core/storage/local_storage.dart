@@ -89,6 +89,57 @@ class LocalStorage {
   bool getDarkMode() => _prefs.getBool(_darkModeKey) ?? false;
   Future<void> setDarkMode(bool dark) => _prefs.setBool(_darkModeKey, dark);
 
+  // ─── My Zoo ───
+  static const String _myZooOwnedAnimalsKey = 'my_zoo_owned_animals';
+  static const String _myZooSoundModesKey = 'my_zoo_sound_modes';
+  static const String _myZooRecordingsKey = 'my_zoo_recordings';
+
+  List<String> getMyZooOwnedAnimals() =>
+      _prefs.getStringList(_myZooOwnedAnimalsKey) ?? [];
+
+  Future<void> addMyZooOwnedAnimal(String animalId) async {
+    final current = getMyZooOwnedAnimals();
+    if (!current.contains(animalId)) {
+      current.add(animalId);
+      await _prefs.setStringList(_myZooOwnedAnimalsKey, current);
+    }
+  }
+
+  Future<void> setMyZooOwnedAnimals(List<String> animalIds) =>
+      _prefs.setStringList(_myZooOwnedAnimalsKey, animalIds);
+
+  Map<String, String> getMyZooSoundModes() => _getStringMap(_myZooSoundModesKey);
+
+  Future<void> setMyZooSoundMode(String animalId, String mode) async {
+    final map = getMyZooSoundModes();
+    map[animalId] = mode;
+    await _prefs.setString(_myZooSoundModesKey, json.encode(map));
+  }
+
+  Map<String, String> getMyZooRecordings() => _getStringMap(_myZooRecordingsKey);
+
+  Future<void> setMyZooRecordingPath(String animalId, String path) async {
+    final map = getMyZooRecordings();
+    map[animalId] = path;
+    await _prefs.setString(_myZooRecordingsKey, json.encode(map));
+  }
+
+  Future<void> removeMyZooRecordingPath(String animalId) async {
+    final map = getMyZooRecordings();
+    map.remove(animalId);
+    await _prefs.setString(_myZooRecordingsKey, json.encode(map));
+  }
+
+  Map<String, String> _getStringMap(String key) {
+    final raw = _prefs.getString(key);
+    if (raw == null || raw.isEmpty) return {};
+
+    final decoded = json.decode(raw);
+    if (decoded is! Map) return {};
+
+    return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+  }
+
   // ─── Clear All ───
   Future<void> clearAll() => _prefs.clear();
 }

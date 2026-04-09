@@ -5,6 +5,7 @@ import '../../features/home/home_screen.dart';
 import '../../features/guess_animal/guess_screen.dart';
 import '../../features/puzzle/puzzle_screen.dart';
 import '../../features/baby_mode/baby_screen.dart';
+import '../../features/my_zoo/my_zoo_screen.dart';
 
 class AppRouter {
   AppRouter._();
@@ -94,6 +95,26 @@ class AppRouter {
                 parent: animation,
                 curve: Curves.easeOutBack,
               ),
+              child: child,
+            );
+          },
+        ),
+      ),
+      GoRoute(
+        path: '/my-zoo',
+        name: 'my-zoo',
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: const MyZooScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              )),
               child: child,
             );
           },

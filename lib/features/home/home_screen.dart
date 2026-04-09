@@ -193,6 +193,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     onTap: () => context.push('/baby'),
                     index: 2,
                   ),
+                  const SizedBox(height: 16),
+                  _buildModeCard(
+                    emoji: '🏡',
+                    title: 'My Zoo',
+                    description: 'Buy animals & use your own recordings',
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF67C587), Color(0xFF43A047)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shadowColor: AppColors.primaryGreen,
+                    onTap: () => context.push('/my-zoo'),
+                    index: 3,
+                  ),
                   const SizedBox(height: 24),
                   // ─── Daily Challenge Banner ───
                   _buildDailyChallenge(daily),

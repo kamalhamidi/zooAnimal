@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:just_audio/just_audio.dart';
 import 'package:audioplayers/audioplayers.dart' as ap;
 import 'package:flutter/foundation.dart';
@@ -68,6 +70,46 @@ class AudioService {
     }
   }
 
+  Future<void> playFileSound(String filePath) async {
+    final canPlay = await _isPlayableFile(filePath);
+    if (!canPlay) {
+      await SystemSound.play(SystemSoundType.click);
+      return;
+    }
+
+    try {
+      if (_useFallback) {
+        await _fallbackPlayer.setVolume(_volume);
+        await _fallbackPlayer.play(ap.DeviceFileSource(filePath));
+      } else {
+        await _player.stop();
+        await _player.setFilePath(filePath);
+        await _player.setVolume(_volume);
+        await _player.play();
+      }
+    } catch (_) {
+      if (!_useFallback) {
+        _useFallback = true;
+        await playFileSound(filePath);
+      }
+    }
+  }
+
+  Future<void> playPreferredSound({
+    required String originalAssetPath,
+    String? recordedFilePath,
+    bool preferRecorded = false,
+  }) async {
+    if (preferRecorded && recordedFilePath != null && recordedFilePath.isNotEmpty) {
+      final canPlayRecorded = await _isPlayableFile(recordedFilePath);
+      if (canPlayRecorded) {
+        await playFileSound(recordedFilePath);
+        return;
+      }
+    }
+    await playSound(originalAssetPath);
+  }
+
   Future<bool> _isPlayableAsset(String assetPath) async {
     if (_invalidAssets.contains(assetPath)) return false;
     if (_checkedAssets.contains(assetPath)) return true;
@@ -84,6 +126,17 @@ class AudioService {
     } catch (_) {
       _invalidAssets.add(assetPath);
       debugPrint('AudioService: asset not found, skipping playback -> $assetPath');
+      return false;
+    }
+  }
+
+  Future<bool> _isPlayableFile(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      final length = await file.length();
+      return length > 0;
+    } catch (_) {
       return false;
     }
   }
