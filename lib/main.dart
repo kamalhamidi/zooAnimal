@@ -37,7 +37,7 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ));
 
-    // Initialize services
+    // Initialize required storage first (providers depend on this override)
     LocalStorage? storage;
     try {
       storage = await LocalStorage.getInstance();
@@ -45,6 +45,23 @@ void main() async {
       debugPrint('Failed to init LocalStorage: $e');
     }
 
+    if (storage == null) {
+      // Without storage override, multiple providers throw UnimplementedError.
+      debugPrint('Fatal: LocalStorage is required at startup.');
+      return;
+    }
+
+    // Start UI as early as possible to avoid extended white/splash screen time.
+    runApp(
+      ProviderScope(
+        overrides: [
+          localStorageProvider.overrideWithValue(storage),
+        ],
+        child: const SoundZooApp(),
+      ),
+    );
+
+    // Initialize optional services in background.
     try {
       await AudioService.instance.init();
     } catch (e) {
@@ -58,16 +75,6 @@ void main() async {
     } catch (e) {
       debugPrint('Failed to init AdService: $e');
     }
-
-    runApp(
-      ProviderScope(
-        overrides: [
-          if (storage != null)
-            localStorageProvider.overrideWithValue(storage),
-        ],
-        child: const SoundZooApp(),
-      ),
-    );
   }, (error, stack) {
     debugPrint('Uncaught error: $error');
     debugPrint('Stack: $stack');

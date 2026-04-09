@@ -93,6 +93,8 @@ class LocalStorage {
   static const String _myZooOwnedAnimalsKey = 'my_zoo_owned_animals';
   static const String _myZooSoundModesKey = 'my_zoo_sound_modes';
   static const String _myZooRecordingsKey = 'my_zoo_recordings';
+  static const String _myZooLayoutKey = 'my_zoo_layout';
+  static const String _myZooIncomeTimestampsKey = 'my_zoo_income_timestamps';
 
   List<String> getMyZooOwnedAnimals() =>
       _prefs.getStringList(_myZooOwnedAnimalsKey) ?? [];
@@ -113,7 +115,7 @@ class LocalStorage {
   Future<void> setMyZooSoundMode(String animalId, String mode) async {
     final map = getMyZooSoundModes();
     map[animalId] = mode;
-    await _prefs.setString(_myZooSoundModesKey, json.encode(map));
+    await _setStringMap(_myZooSoundModesKey, map);
   }
 
   Map<String, String> getMyZooRecordings() => _getStringMap(_myZooRecordingsKey);
@@ -121,13 +123,43 @@ class LocalStorage {
   Future<void> setMyZooRecordingPath(String animalId, String path) async {
     final map = getMyZooRecordings();
     map[animalId] = path;
-    await _prefs.setString(_myZooRecordingsKey, json.encode(map));
+    await _setStringMap(_myZooRecordingsKey, map);
   }
 
   Future<void> removeMyZooRecordingPath(String animalId) async {
     final map = getMyZooRecordings();
     map.remove(animalId);
-    await _prefs.setString(_myZooRecordingsKey, json.encode(map));
+    await _setStringMap(_myZooRecordingsKey, map);
+  }
+
+  Map<String, String> getMyZooLayout() => _getStringMap(_myZooLayoutKey);
+
+  Future<void> setMyZooLayout(Map<String, String> layout) async {
+    await _setStringMap(_myZooLayoutKey, layout);
+  }
+
+  Future<void> setMyZooLayoutPosition(String animalId, double x, double y) async {
+    final map = getMyZooLayout();
+    map[animalId] = '$x,$y';
+    await _setStringMap(_myZooLayoutKey, map);
+  }
+
+  Map<String, int> getMyZooIncomeTimestamps() {
+    final raw = _getStringMap(_myZooIncomeTimestampsKey);
+    return raw.map(
+      (k, v) => MapEntry(k, int.tryParse(v) ?? 0),
+    );
+  }
+
+  Future<void> setMyZooIncomeTimestamps(Map<String, int> timestamps) async {
+    final map = timestamps.map((k, v) => MapEntry(k, v.toString()));
+    await _setStringMap(_myZooIncomeTimestampsKey, map);
+  }
+
+  Future<void> setMyZooIncomeTimestamp(String animalId, int epochMs) async {
+    final map = getMyZooIncomeTimestamps();
+    map[animalId] = epochMs;
+    await setMyZooIncomeTimestamps(map);
   }
 
   Map<String, String> _getStringMap(String key) {
@@ -138,6 +170,10 @@ class LocalStorage {
     if (decoded is! Map) return {};
 
     return decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+  }
+
+  Future<void> _setStringMap(String key, Map<String, String> map) {
+    return _prefs.setString(key, json.encode(map));
   }
 
   // ─── Clear All ───
