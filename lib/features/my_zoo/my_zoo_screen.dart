@@ -10,7 +10,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../core/ads/ad_service.dart';
 import '../../core/audio/audio_service.dart';
+import '../../core/ads/banner_ad_widget.dart';
 import '../../core/models/animal.dart';
 import '../../core/providers/coin_provider.dart';
 import '../../core/providers/my_zoo_provider.dart';
@@ -40,6 +42,7 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
   static const double _animalHalfHeight = 55;
   static const double _minZoom = 0.75;
   static const double _maxZoom = 2.2;
+  static const double _bannerReservedHeight = 70;
 
   // ─── Game loop ───
   late Ticker _ticker;
@@ -67,6 +70,9 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
 
   // ─── UI ticker for income countdowns ───
   Timer? _uiTicker;
+  Timer? _interstitialTicker;
+  bool _isShowingInterstitial = false;
+  bool _pendingInterstitial = false;
 
   // ─── Image picker ───
   final ImagePicker _imagePicker = ImagePicker();
@@ -84,6 +90,11 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
       if (mounted) setState(() {});
     });
 
+    // Show interstitial ad every 2 minutes while in My Zoo.
+    _interstitialTicker = Timer.periodic(const Duration(minutes: 2), (_) {
+      _tryShowPeriodicInterstitial();
+    });
+
     // Immersive mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -97,11 +108,29 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
   void dispose() {
     _ticker.dispose();
     _uiTicker?.cancel();
+    _interstitialTicker?.cancel();
     AudioService.instance.stopAll();
     // Restore UI mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: SystemUiOverlay.values);
     super.dispose();
+  }
+
+  Future<void> _tryShowPeriodicInterstitial() async {
+    if (!mounted || _isShowingInterstitial) return;
+
+    // Avoid interrupting user while shop is open; defer until closed.
+    if (_showShop) {
+      _pendingInterstitial = true;
+      return;
+    }
+
+    _isShowingInterstitial = true;
+    try {
+      await AdService.instance.showInterstitial();
+    } finally {
+      _isShowingInterstitial = false;
+    }
   }
 
   // ─── Game tick ───
@@ -380,11 +409,39 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
                 onBack: () => Navigator.of(context).pop(),
                 onShop: () => setState(() => _showShop = true),
                 onSettings: _showSettingsSheet,
+                bottomInset: _showShop ? 0 : _bannerReservedHeight,
               ),
+
+              // ─── In-game banner ad (bottom) ───
+              if (!_showShop)
+                Positioned(
+                  bottom: MediaQuery.of(context).padding.bottom + 8,
+                  left: 0,
+                  right: 0,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.15),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(3),
+                      child: const BannerAdWidget(),
+                    ),
+                  ),
+                ),
 
               // ─── Joystick ───
               Positioned(
-                bottom: MediaQuery.of(context).padding.bottom + 24,
+                bottom: MediaQuery.of(context).padding.bottom +
+                    (_showShop ? 24 : 24 + _bannerReservedHeight),
                 left: 20,
                 child: ZooJoystick(
                   onDirectionChanged: (dir) => _joystickDir = dir,
@@ -395,7 +452,13 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
               if (_showShop) ...[
                 // Backdrop
                 GestureDetector(
-                  onTap: () => setState(() => _showShop = false),
+                  onTap: () async {
+                    setState(() => _showShop = false);
+                    if (_pendingInterstitial) {
+                      _pendingInterstitial = false;
+                      await _tryShowPeriodicInterstitial();
+                    }
+                  },
                   child: Container(
                     color: Colors.black.withValues(alpha: 0.3),
                   ),

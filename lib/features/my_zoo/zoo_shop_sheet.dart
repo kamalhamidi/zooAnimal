@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
+import '../../core/ads/ad_service.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/models/animal.dart';
 import '../../core/providers/coin_provider.dart';
@@ -24,7 +27,10 @@ class ZooShopSheet extends ConsumerStatefulWidget {
 }
 
 class _ZooShopSheetState extends ConsumerState<ZooShopSheet> {
+  static const int _rewardCoinsFallback = 80;
+
   bool _showOwnedOnly = false;
+  bool _isRewardFlowBusy = false;
 
   int _priceFor(Animal animal) => MyZooEconomyData.ruleFor(animal).price;
 
@@ -32,11 +38,81 @@ class _ZooShopSheetState extends ConsumerState<ZooShopSheet> {
     final price = _priceFor(animal);
     final spent = await ref.read(coinProvider.notifier).spendCoins(price);
     if (!spent) {
-      _snack('Not enough coins to buy ${animal.name}.');
+      final shortage = (price - ref.read(coinProvider)).toInt();
+      _showNotEnoughCoinsDialog(animal, shortage);
       return;
     }
     await ref.read(myZooProvider.notifier).addOwnedAnimal(animal.id);
     _snack('${animal.name} added to your zoo! 🎉');
+    await AdService.instance.showInterstitial();
+  }
+
+  void _showNotEnoughCoinsDialog(Animal animal, int shortage) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Not enough coins'),
+          content: Text(
+            'You need $shortage more coins to buy ${animal.name}.\nWatch a rewarded ad to earn coins?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: _isRewardFlowBusy
+                  ? null
+                  : () {
+                      Navigator.of(ctx).pop();
+                      _watchAdForCoins(targetAnimal: animal);
+                    },
+              icon: const Icon(Icons.ondemand_video_rounded),
+              label: Text(_isRewardFlowBusy ? 'Loading...' : 'Watch Ad'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _watchAdForCoins({Animal? targetAnimal}) async {
+    if (_isRewardFlowBusy) return;
+
+    setState(() => _isRewardFlowBusy = true);
+
+    var rewardedCoins = 0;
+    final shown = await AdService.instance.showRewarded(
+      onRewarded: (amount) {
+        rewardedCoins = amount > 0 ? amount * 10 : _rewardCoinsFallback;
+        unawaited(ref.read(coinProvider.notifier).addCoins(rewardedCoins));
+      },
+      onDismissed: null,
+    );
+
+    if (mounted) {
+      setState(() => _isRewardFlowBusy = false);
+    }
+
+    if (!shown) {
+      _snack('Rewarded ad is not ready yet. Please try again in a moment.');
+      return;
+    }
+
+    if (rewardedCoins > 0) {
+      _snack('You earned +$rewardedCoins coins!');
+    } else {
+      _snack('Ad watched. Reward processing...');
+    }
+
+    if (targetAnimal != null) {
+      final coins = ref.read(coinProvider);
+      final price = _priceFor(targetAnimal);
+      if (coins >= price) {
+        _snack('Great! You can now buy ${targetAnimal.name}.');
+      }
+    }
   }
 
   Future<void> _playAnimal(Animal animal) async {
@@ -170,6 +246,17 @@ class _ZooShopSheetState extends ConsumerState<ZooShopSheet> {
                       label: const Text('Owned'),
                       onSelected: (_) =>
                           setState(() => _showOwnedOnly = true),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed:
+                          _isRewardFlowBusy ? null : () => _watchAdForCoins(),
+                      icon: const Icon(Icons.ondemand_video_rounded, size: 18),
+                      label: Text(
+                        _isRewardFlowBusy
+                            ? 'Loading...'
+                            : 'Watch Ad +$_rewardCoinsFallback',
+                      ),
                     ),
                   ],
                 ),

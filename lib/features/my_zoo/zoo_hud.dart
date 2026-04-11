@@ -17,6 +17,7 @@ class ZooHud extends ConsumerWidget {
   final VoidCallback onBack;
   final VoidCallback onShop;
   final VoidCallback onSettings;
+  final double bottomInset;
 
   const ZooHud({
     super.key,
@@ -24,6 +25,7 @@ class ZooHud extends ConsumerWidget {
     required this.onBack,
     required this.onShop,
     required this.onSettings,
+    this.bottomInset = 0,
   });
 
   @override
@@ -126,7 +128,7 @@ class ZooHud extends ConsumerWidget {
 
           // ─── Shop FAB ───
           Positioned(
-            bottom: safePad.bottom + 20,
+            bottom: safePad.bottom + 20 + bottomInset,
             right: 16,
             child: GestureDetector(
               onTap: onShop,
