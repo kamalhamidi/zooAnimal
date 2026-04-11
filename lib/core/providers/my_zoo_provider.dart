@@ -22,6 +22,8 @@ class MyZooState {
   final Map<String, int> incomeLastPayoutMsByAnimal;
   final bool isRecording;
   final String? recordingAnimalId;
+  final String? customPlayerImagePath;
+  final String? customBackgroundPath;
 
   const MyZooState({
     this.ownedAnimalIds = const {},
@@ -31,6 +33,8 @@ class MyZooState {
     this.incomeLastPayoutMsByAnimal = const {},
     this.isRecording = false,
     this.recordingAnimalId,
+    this.customPlayerImagePath,
+    this.customBackgroundPath,
   });
 
   MyZooState copyWith({
@@ -42,6 +46,10 @@ class MyZooState {
     bool? isRecording,
     String? recordingAnimalId,
     bool clearRecordingAnimalId = false,
+    String? customPlayerImagePath,
+    bool clearCustomPlayerImage = false,
+    String? customBackgroundPath,
+    bool clearCustomBackground = false,
   }) {
     return MyZooState(
       ownedAnimalIds: ownedAnimalIds ?? this.ownedAnimalIds,
@@ -53,6 +61,10 @@ class MyZooState {
       isRecording: isRecording ?? this.isRecording,
       recordingAnimalId:
           clearRecordingAnimalId ? null : (recordingAnimalId ?? this.recordingAnimalId),
+      customPlayerImagePath:
+          clearCustomPlayerImage ? null : (customPlayerImagePath ?? this.customPlayerImagePath),
+      customBackgroundPath:
+          clearCustomBackground ? null : (customBackgroundPath ?? this.customBackgroundPath),
     );
   }
 }
@@ -109,6 +121,8 @@ class MyZooNotifier extends StateNotifier<MyZooState> {
       recordingPathByAnimal: _storage.getMyZooRecordings(),
       layoutByAnimal: normalizedLayout,
       incomeLastPayoutMsByAnimal: normalizedIncome,
+      customPlayerImagePath: _storage.getZooCustomPlayerImage(),
+      customBackgroundPath: _storage.getZooCustomBackground(),
     );
 
     if (needsLayoutSave) {
@@ -202,6 +216,26 @@ class MyZooNotifier extends StateNotifier<MyZooState> {
 
     state = state.copyWith(soundModeByAnimal: updated);
     await _storage.setMyZooSoundMode(animalId, mode.name);
+  }
+
+  // ─── Customisation ───
+
+  Future<void> setCustomPlayerImage(String? path) async {
+    if (path == null) {
+      state = state.copyWith(clearCustomPlayerImage: true);
+    } else {
+      state = state.copyWith(customPlayerImagePath: path);
+    }
+    await _storage.setZooCustomPlayerImage(path);
+  }
+
+  Future<void> setCustomBackground(String? path) async {
+    if (path == null) {
+      state = state.copyWith(clearCustomBackground: true);
+    } else {
+      state = state.copyWith(customBackgroundPath: path);
+    }
+    await _storage.setZooCustomBackground(path);
   }
 
   void _startIncomeTicker() {

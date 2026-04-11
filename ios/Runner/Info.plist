@@ -30,6 +30,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SoundZoo may use the microphone for future multiplayer features.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SoundZoo needs photo library access to let you upload a custom character or background for your zoo.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>SoundZoo may use speech recognition for voice-based gameplay.</string>
 	<key>NSUserTrackingUsageDescription</key>

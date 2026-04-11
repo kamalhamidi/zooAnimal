@@ -176,6 +176,28 @@ class LocalStorage {
     return _prefs.setString(key, json.encode(map));
   }
 
+  // ─── Zoo Customisation ───
+  static const String _zooCustomPlayerKey = 'zoo_custom_player_image';
+  static const String _zooCustomBgKey = 'zoo_custom_bg_image';
+
+  String? getZooCustomPlayerImage() => _prefs.getString(_zooCustomPlayerKey);
+  Future<void> setZooCustomPlayerImage(String? path) async {
+    if (path == null) {
+      await _prefs.remove(_zooCustomPlayerKey);
+    } else {
+      await _prefs.setString(_zooCustomPlayerKey, path);
+    }
+  }
+
+  String? getZooCustomBackground() => _prefs.getString(_zooCustomBgKey);
+  Future<void> setZooCustomBackground(String? path) async {
+    if (path == null) {
+      await _prefs.remove(_zooCustomBgKey);
+    } else {
+      await _prefs.setString(_zooCustomBgKey, path);
+    }
+  }
+
   // ─── Clear All ───
   Future<void> clearAll() => _prefs.clear();
 }

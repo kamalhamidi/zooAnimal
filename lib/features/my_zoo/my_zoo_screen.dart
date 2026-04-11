@@ -1,20 +1,28 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../app/theme/app_colors.dart';
-import '../../app/theme/app_theme.dart';
-import '../../core/ads/footer_banner_bar.dart';
 import '../../core/audio/audio_service.dart';
 import '../../core/models/animal.dart';
 import '../../core/providers/coin_provider.dart';
 import '../../core/providers/my_zoo_provider.dart';
 import '../../data/animals_data.dart';
 import '../../data/my_zoo_economy_data.dart';
+import 'zoo_animal_sprite.dart';
+import 'zoo_hud.dart';
+import 'zoo_joystick.dart';
+import 'zoo_player.dart';
+import 'zoo_shop_sheet.dart';
+import 'zoo_world_data.dart';
+import 'zoo_world_painter.dart';
 
 class MyZooScreen extends ConsumerStatefulWidget {
   const MyZooScreen({super.key});
@@ -23,219 +31,386 @@ class MyZooScreen extends ConsumerStatefulWidget {
   ConsumerState<MyZooScreen> createState() => _MyZooScreenState();
 }
 
-class _MyZooScreenState extends ConsumerState<MyZooScreen> {
-  int _tabIndex = 0;
-  bool _showOwnedOnly = false;
+class _MyZooScreenState extends ConsumerState<MyZooScreen>
+    with SingleTickerProviderStateMixin {
+  static const double _animalHalfWidth = 45;
+  static const double _animalHalfHeight = 55;
+
+  // ─── Game loop ───
+  late Ticker _ticker;
+  Duration _lastTick = Duration.zero;
+
+  // ─── Player state ───
+  Offset _playerPos = ZooWorldData.playerStart;
+  Offset _joystickDir = Offset.zero;
+  bool _facingRight = true;
+  double _walkPhase = 0;
+
+  // ─── Camera ───
+  Offset _cameraOffset = Offset.zero;
+
+  // ─── Screen size ───
+  Size _screenSize = Size.zero;
+
+  // ─── Sound cooldowns ───
+  final Map<String, int> _lastSoundPlayMs = {};
+
+  // ─── Overlay state ───
+  bool _showShop = false;
+
+  // ─── UI ticker for income countdowns ───
   Timer? _uiTicker;
+
+  // ─── Image picker ───
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    // Rebuild every second for countdown labels.
+
+    // Game loop
+    _ticker = createTicker(_onTick);
+    _ticker.start();
+
+    // 1-second UI refresh for income countdowns
     _uiTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
+
+    // Immersive mode
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+    ));
   }
 
   @override
   void dispose() {
+    _ticker.dispose();
     _uiTicker?.cancel();
     AudioService.instance.stopAll();
+    // Restore UI mode
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
+        overlays: SystemUiOverlay.values);
     super.dispose();
   }
 
-  int _priceFor(Animal animal) {
-    return MyZooEconomyData.ruleFor(animal).price;
-  }
+  // ─── Game tick ───
+  void _onTick(Duration elapsed) {
+    final dt = _lastTick == Duration.zero
+        ? 1.0 / 60.0
+        : (elapsed - _lastTick).inMicroseconds / 1000000.0;
+    _lastTick = elapsed;
 
-  Future<void> _buyAnimal(Animal animal) async {
-    final price = _priceFor(animal);
-    final spent = await ref.read(coinProvider.notifier).spendCoins(price);
+    final isMoving = _joystickDir.distance > 0.15;
 
-    if (!spent) {
-      _showSnack('Not enough coins to buy ${animal.name}.');
-      return;
+    if (isMoving) {
+      final speed = ZooWorldData.playerSpeed * (dt * 60);
+      final dx = _joystickDir.dx * speed;
+      final dy = _joystickDir.dy * speed;
+
+      _playerPos = Offset(
+        (_playerPos.dx + dx).clamp(60, ZooWorldData.worldWidth - 60),
+        (_playerPos.dy + dy).clamp(60, ZooWorldData.worldHeight - 60),
+      );
+
+      if (_joystickDir.dx.abs() > 0.1) {
+        _facingRight = _joystickDir.dx > 0;
+      }
+
+      _walkPhase = (_walkPhase + dt * 4) % 1.0;
     }
 
-    await ref.read(myZooProvider.notifier).addOwnedAnimal(animal.id);
-    _showSnack('${animal.name} added to your zoo!');
+    // Camera follows player (centered)
+    if (_screenSize != Size.zero) {
+      final targetCam = Offset(
+        (_playerPos.dx - _screenSize.width / 2)
+            .clamp(0.0, (ZooWorldData.worldWidth - _screenSize.width).clamp(0.0, double.infinity)),
+        (_playerPos.dy - _screenSize.height / 2)
+            .clamp(0.0, (ZooWorldData.worldHeight - _screenSize.height).clamp(0.0, double.infinity)),
+      );
+
+      // Smooth camera follow
+      _cameraOffset = Offset(
+        _cameraOffset.dx + (targetCam.dx - _cameraOffset.dx) * 0.12,
+        _cameraOffset.dy + (targetCam.dy - _cameraOffset.dy) * 0.12,
+      );
+    }
+
+    // Proximity sound checks
+    _checkProximity();
+
+    // Rebuild
+    if (mounted) setState(() {});
   }
 
-  Future<void> _playAnimal(Animal animal, MyZooState zooState) async {
-    final mode = ref.read(myZooProvider.notifier).getSoundMode(animal.id);
-    final recordingPath = zooState.recordingPathByAnimal[animal.id];
+  void _checkProximity() {
+    final zooState = ref.read(myZooProvider);
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    for (final animalId in zooState.ownedAnimalIds) {
+      final worldPos = _worldAnimalPosition(animalId, zooState);
+
+      final dist = (_playerPos - worldPos).distance;
+      if (dist < ZooWorldData.soundProximityRadius) {
+        final lastPlay = _lastSoundPlayMs[animalId] ?? 0;
+        if (now - lastPlay > ZooWorldData.soundCooldownMs) {
+          _lastSoundPlayMs[animalId] = now;
+          _playAnimalSound(animalId, zooState);
+        }
+      }
+    }
+  }
+
+  Future<void> _playAnimalSound(String animalId, MyZooState zooState) async {
+    final animal = AnimalsData.allAnimals.firstWhere(
+      (a) => a.id == animalId,
+      orElse: () => AnimalsData.allAnimals.first,
+    );
+
+    final mode = ref.read(myZooProvider.notifier).getSoundMode(animalId);
+    final recording = zooState.recordingPathByAnimal[animalId];
 
     await AudioService.instance.playPreferredSound(
       originalAssetPath: animal.soundAssetPath,
-      recordedFilePath: recordingPath,
+      recordedFilePath: recording,
       preferRecorded: mode == MyZooSoundMode.recorded,
     );
   }
 
-  Future<void> _toggleRecord(Animal animal, MyZooState state) async {
-    final notifier = ref.read(myZooProvider.notifier);
+  // ─── Customisation ───
+  Future<void> _pickPlayerImage() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 256,
+      maxHeight: 256,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
 
-    if (state.isRecording && state.recordingAnimalId == animal.id) {
-      final path = await notifier.stopRecording(animal.id);
-      if (path == null) {
-        _showSnack('Recording failed for ${animal.name}.');
-      } else {
-        _showSnack('Saved your ${animal.name} recording!');
-      }
-      return;
-    }
+    final dir = await getApplicationDocumentsDirectory();
+    final dest = '${dir.path}/zoo_player_avatar.png';
+    await File(picked.path).copy(dest);
 
-    if (state.isRecording) {
-      _showSnack('Stop current recording first.');
-      return;
-    }
-
-    final ok = await notifier.startRecording(animal.id);
-    if (!ok) {
-      _showSnack('Microphone permission is required.');
-      return;
-    }
-
-    _showSnack('Recording ${animal.name}... tap mic again to stop.');
+    await ref.read(myZooProvider.notifier).setCustomPlayerImage(dest);
   }
 
-  void _showSnack(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(msg)),
-      );
+  Future<void> _pickBackgroundImage() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 2400,
+      maxHeight: 3200,
+      imageQuality: 90,
+    );
+    if (picked == null) return;
+
+    final dir = await getApplicationDocumentsDirectory();
+    final dest = '${dir.path}/zoo_custom_bg.png';
+    await File(picked.path).copy(dest);
+
+    await ref.read(myZooProvider.notifier).setCustomBackground(dest);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final coins = ref.watch(coinProvider);
-    final zooState = ref.watch(myZooProvider);
-
-    final all = AnimalsData.allAnimals;
-    final owned = all.where((a) => zooState.ownedAnimalIds.contains(a.id)).toList();
-    final visibleShopAnimals = _showOwnedOnly ? owned : all;
-
-    return Scaffold(
-      bottomNavigationBar: const FooterBannerBar(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
+  void _showSettingsSheet() {
+    final zooState = ref.read(myZooProvider);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  Expanded(
-                    child: Text(
-                      '🏡 My Zoo',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.fredoka(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryGreen,
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  '🎨 Customise Zoo',
+                  style: GoogleFonts.fredoka(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryGreen,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                const SizedBox(height: 20),
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.accentYellow.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                      shape: BoxShape.circle,
+                      color: AppColors.primaryGreen.withValues(alpha: 0.1),
                     ),
-                    child: Text(
-                      '🪙 $coins',
-                      style: GoogleFonts.nunito(
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.accentGolden,
+                    child: const Icon(Icons.person, color: AppColors.primaryGreen),
+                  ),
+                  title: Text('Change Player Character',
+                      style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    zooState.customPlayerImagePath != null
+                        ? 'Custom image set ✓'
+                        : 'Upload your own character photo',
+                    style: GoogleFonts.nunito(fontSize: 13),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickPlayerImage();
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.secondaryOrange.withValues(alpha: 0.1),
+                    ),
+                    child: const Icon(Icons.landscape, color: AppColors.secondaryOrange),
+                  ),
+                  title: Text('Change Background',
+                      style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
+                  subtitle: Text(
+                    zooState.customBackgroundPath != null
+                        ? 'Custom background set ✓'
+                        : 'Upload a custom zoo background',
+                    style: GoogleFonts.nunito(fontSize: 13),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickBackgroundImage();
+                  },
+                ),
+                if (zooState.customPlayerImagePath != null ||
+                    zooState.customBackgroundPath != null) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.red.withValues(alpha: 0.1),
                       ),
+                      child: const Icon(Icons.restore, color: Colors.red),
                     ),
+                    title: Text('Reset to Default',
+                        style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await ref.read(myZooProvider.notifier).setCustomPlayerImage(null);
+                      await ref.read(myZooProvider.notifier).setCustomBackground(null);
+                    },
                   ),
                 ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                _tabIndex == 0
-                    ? 'Drag your owned animals in a real 2D zoo. Tap any animal to hear its sound. They earn coins automatically over time.'
-                    : 'Shop and tune each animal economy from code (price, income, and payout interval).',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black54,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              children: [
-                ChoiceChip(
-                  selected: _tabIndex == 0,
-                  label: const Text('Zoo View'),
-                  onSelected: (_) => setState(() => _tabIndex = 0),
-                ),
-                ChoiceChip(
-                  selected: _tabIndex == 1,
-                  label: const Text('Shop'),
-                  onSelected: (_) => setState(() => _tabIndex = 1),
-                ),
               ],
             ),
-            if (_tabIndex == 1) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                children: [
-                  ChoiceChip(
-                    selected: _showOwnedOnly,
-                    label: const Text('Owned only'),
-                    onSelected: (_) => setState(() => _showOwnedOnly = true),
-                  ),
-                  ChoiceChip(
-                    selected: !_showOwnedOnly,
-                    label: const Text('All animals'),
-                    onSelected: (_) => setState(() => _showOwnedOnly = false),
-                  ),
-                ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ─── Build ───
+  @override
+  Widget build(BuildContext context) {
+    final zooState = ref.watch(myZooProvider);
+    final coins = ref.watch(coinProvider);
+    final allAnimals = AnimalsData.allAnimals;
+    final ownedAnimals =
+        allAnimals.where((a) => zooState.ownedAnimalIds.contains(a.id)).toList();
+
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          _screenSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+          return Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              // ─── World viewport ───
+              _buildWorld(ownedAnimals, zooState),
+
+              // ─── HUD overlay ───
+              ZooHud(
+                coins: coins,
+                onBack: () => Navigator.of(context).pop(),
+                onShop: () => setState(() => _showShop = true),
+                onSettings: _showSettingsSheet,
               ),
-            ],
-            if (zooState.isRecording) ...[
-              const SizedBox(height: 8),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.mic_rounded, color: Colors.red),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Recording in progress...',
-                        style: GoogleFonts.nunito(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
+
+              // ─── Joystick ───
+              Positioned(
+                bottom: MediaQuery.of(context).padding.bottom + 24,
+                left: 20,
+                child: ZooJoystick(
+                  onDirectionChanged: (dir) => _joystickDir = dir,
                 ),
               ),
+
+              // ─── Shop overlay ───
+              if (_showShop) ...[
+                // Backdrop
+                GestureDetector(
+                  onTap: () => setState(() => _showShop = false),
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.3),
+                  ),
+                ),
+                // Sheet
+                const ZooShopSheet(),
+              ],
             ],
-            const SizedBox(height: 8),
-            Expanded(
-              child: _tabIndex == 0
-                  ? _buildZooView(owned: owned, zooState: zooState)
-                  : _buildShopView(
-                      zooState: zooState,
-                      visibleShopAnimals: visibleShopAnimals,
-                    ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ─── World layer ───
+  Widget _buildWorld(List<Animal> ownedAnimals, MyZooState zooState) {
+    return Positioned(
+      left: -_cameraOffset.dx,
+      top: -_cameraOffset.dy,
+      child: SizedBox(
+        width: ZooWorldData.worldWidth,
+        height: ZooWorldData.worldHeight,
+        child: Stack(
+          children: [
+            // Background
+            _buildBackground(zooState),
+
+            // Decorations
+            ..._buildDecorations(),
+
+            // Animals
+            ..._buildAnimals(ownedAnimals, zooState),
+
+            // Player
+            Positioned(
+              left: _playerPos.dx - (ZooWorldData.playerSize + 20) / 2,
+              top: _playerPos.dy - (ZooWorldData.playerSize + 36),
+              child: ZooPlayer(
+                isMoving: _joystickDir.distance > 0.15,
+                facingRight: _facingRight,
+                customImagePath: zooState.customPlayerImagePath,
+                size: ZooWorldData.playerSize,
+                bouncePhase: _walkPhase,
+              ),
             ),
           ],
         ),
@@ -243,397 +418,205 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen> {
     );
   }
 
-  Widget _buildZooView({
-    required List<Animal> owned,
-    required MyZooState zooState,
-  }) {
-    if (owned.isEmpty) {
-      return Center(
-        child: Text(
-          'No animals owned yet. Open Shop and buy your first animal! 🐾',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
+  Widget _buildBackground(MyZooState zooState) {
+    if (zooState.customBackgroundPath != null) {
+      final file = File(zooState.customBackgroundPath!);
+      if (file.existsSync()) {
+        return Positioned.fill(
+          child: Image.file(
+            file,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _defaultBackground(),
           ),
+        );
+      }
+    }
+    return _defaultBackground();
+  }
+
+  Widget _defaultBackground() {
+    return Positioned.fill(
+      child: RepaintBoundary(
+        child: CustomPaint(
+          size: const Size(ZooWorldData.worldWidth, ZooWorldData.worldHeight),
+          painter: ZooWorldPainter(),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildDecorations() {
+    return ZooWorldData.decorations.map((d) {
+      return Positioned(
+        left: d.position.dx - d.size / 2,
+        top: d.position.dy - d.size / 2,
+        child: Text(
+          d.emoji,
+          style: TextStyle(fontSize: d.size),
         ),
       );
-    }
+    }).toList();
+  }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFBEE9FF),
-                Color(0xFFDCFFC8),
-                Color(0xFFB9ED97),
-              ],
-            ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final itemSize = constraints.maxWidth < 380 ? 84.0 : 92.0;
-              final maxLeft = (constraints.maxWidth - itemSize).clamp(1.0, double.infinity);
-              final maxTop = (constraints.maxHeight - itemSize).clamp(1.0, double.infinity);
+  List<Widget> _buildAnimals(List<Animal> owned, MyZooState zooState) {
+    return owned.map((animal) {
+      final worldPos = _worldAnimalPosition(animal.id, zooState);
 
-              return Stack(
-                children: [
-                  _buildZooDecor(),
-                  for (var i = 0; i < owned.length; i++) ...[
-                    () {
-                      final animal = owned[i];
-                      final pos = zooState.layoutByAnimal[animal.id] ??
-                          ref.read(myZooProvider.notifier).getAnimalPosition(animal.id);
-                      final left = pos.dx * maxLeft;
-                      final top = pos.dy * maxTop;
-                      final rule = MyZooEconomyData.ruleFor(animal);
-                      final remaining = ref
-                          .read(myZooProvider.notifier)
-                          .secondsUntilNextIncome(animal.id, rule.intervalSeconds);
+      final rule = MyZooEconomyData.ruleFor(animal);
+      final remaining = ref
+          .read(myZooProvider.notifier)
+          .secondsUntilNextIncome(animal.id, rule.intervalSeconds);
+      final dist = (_playerPos - worldPos).distance;
+      final isNearby = dist < ZooWorldData.soundProximityRadius;
 
-                      return Positioned(
-                        left: left,
-                        top: top,
-                        child: GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            _playAnimal(animal, zooState);
-                          },
-                          onPanUpdate: (details) {
-                            final current = ref.read(myZooProvider).layoutByAnimal[animal.id] ?? pos;
-                            final dx = (current.dx + (details.delta.dx / maxLeft)).clamp(0.0, 1.0);
-                            final dy = (current.dy + (details.delta.dy / maxTop)).clamp(0.0, 1.0);
-                            ref
-                                .read(myZooProvider.notifier)
-                                .setAnimalPosition(animal.id, Offset(dx, dy), persist: false);
-                          },
-                          onPanEnd: (_) {
-                            ref.read(myZooProvider.notifier).persistAnimalPosition(animal.id);
-                          },
-                          child: _ZooAnimalNode(
-                            animal: animal,
-                            size: itemSize,
-                            coinsPerTick: rule.coinsPerTick,
-                            intervalSeconds: rule.intervalSeconds,
-                            secondsLeft: remaining,
-                          ),
-                        ),
-                      )
-                          .animate()
-                          .fadeIn(delay: (i * 35).ms, duration: 220.ms)
-                          .scale(begin: const Offset(0.95, 0.95), end: const Offset(1, 1));
-                    }(),
-                  ],
-                ],
-              );
+      return Positioned(
+        left: worldPos.dx - _animalHalfWidth,
+        top: worldPos.dy - _animalHalfHeight,
+        child: GestureDetector(
+          onPanUpdate: (details) {
+            final nextWorld = Offset(
+              worldPos.dx + details.delta.dx,
+              worldPos.dy + details.delta.dy,
+            );
+            final nextNorm = _worldToLayout(nextWorld);
+            ref.read(myZooProvider.notifier).setAnimalPosition(
+                  animal.id,
+                  nextNorm,
+                  persist: false,
+                );
+          },
+          onPanEnd: (_) {
+            ref.read(myZooProvider.notifier).persistAnimalPosition(animal.id);
+          },
+          child: ZooAnimalSprite(
+            animal: animal,
+            coinsPerTick: rule.coinsPerTick,
+            intervalSeconds: rule.intervalSeconds,
+            secondsLeft: remaining,
+            isNearby: isNearby,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _playAnimalSound(animal.id, zooState);
+              _showAnimalInfo(animal, rule, zooState);
             },
           ),
         ),
-      ),
-    );
+      );
+    }).toList();
   }
 
-  Widget _buildShopView({
-    required MyZooState zooState,
-    required List<Animal> visibleShopAnimals,
-  }) {
-    if (visibleShopAnimals.isEmpty) {
-      return Center(
-        child: Text(
-          'No owned animals yet. Switch filter to All animals.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.nunito(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+  Offset _worldAnimalPosition(String animalId, MyZooState zooState) {
+    final layoutPos = zooState.layoutByAnimal[animalId];
+    if (layoutPos != null) return _layoutToWorld(layoutPos);
+
+    final seed = ZooWorldData.animalPositions[animalId];
+    if (seed != null) {
+      return Offset(
+        seed.dx.clamp(_animalHalfWidth, ZooWorldData.worldWidth - _animalHalfWidth),
+        seed.dy.clamp(_animalHalfHeight, ZooWorldData.worldHeight - _animalHalfHeight),
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.66,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemCount: visibleShopAnimals.length,
-      itemBuilder: (context, i) {
-        final animal = visibleShopAnimals[i];
-        final isOwned = zooState.ownedAnimalIds.contains(animal.id);
-        final hasRecording = (zooState.recordingPathByAnimal[animal.id]?.isNotEmpty ?? false);
-        final mode = ref.read(myZooProvider.notifier).getSoundMode(animal.id);
-        final rule = MyZooEconomyData.ruleFor(animal);
+    return _layoutToWorld(const Offset(0.5, 0.5));
+  }
 
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-            boxShadow: [
-              BoxShadow(
-                blurRadius: 12,
-                color: Colors.black.withValues(alpha: 0.08),
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: Border.all(
-              color: isOwned
-                  ? AppColors.primaryGreen.withValues(alpha: 0.35)
-                  : Colors.grey.withValues(alpha: 0.2),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(animal.emoji, style: const TextStyle(fontSize: 34)),
-              const SizedBox(height: 6),
-              Text(
-                animal.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.fredoka(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+  Offset _layoutToWorld(Offset normalized) {
+    final minX = _animalHalfWidth;
+    final maxX = ZooWorldData.worldWidth - _animalHalfWidth;
+    final minY = _animalHalfHeight;
+    final maxY = ZooWorldData.worldHeight - _animalHalfHeight;
+
+    return Offset(
+      minX + (maxX - minX) * normalized.dx.clamp(0.0, 1.0),
+      minY + (maxY - minY) * normalized.dy.clamp(0.0, 1.0),
+    );
+  }
+
+  Offset _worldToLayout(Offset world) {
+    final minX = _animalHalfWidth;
+    final maxX = ZooWorldData.worldWidth - _animalHalfWidth;
+    final minY = _animalHalfHeight;
+    final maxY = ZooWorldData.worldHeight - _animalHalfHeight;
+
+    return Offset(
+      ((world.dx - minX) / (maxX - minX)).clamp(0.0, 1.0),
+      ((world.dy - minY) / (maxY - minY)).clamp(0.0, 1.0),
+    );
+  }
+
+  void _showAnimalInfo(Animal animal, ZooEconomyRule rule, MyZooState zooState) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(animal.emoji, style: const TextStyle(fontSize: 56)),
+                const SizedBox(height: 10),
+                Text(
+                  animal.name,
+                  style: GoogleFonts.fredoka(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryGreen,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                isOwned ? 'Owned' : 'Price: ${_priceFor(animal)} coins',
-                style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w800,
-                  color: isOwned ? AppColors.primaryGreen : Colors.black54,
+                const SizedBox(height: 8),
+                Text(
+                  animal.funFact,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Income: +${rule.coinsPerTick} every ${rule.intervalSeconds}s',
-                style: GoogleFonts.nunito(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black54,
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentYellow.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('💰', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Earns +${rule.coinsPerTick} coins every ${rule.intervalSeconds}s',
+                        style: GoogleFonts.nunito(
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.accentGolden,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              if (!isOwned)
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(38),
-                    ),
                     onPressed: () {
-                      HapticFeedback.lightImpact();
-                      _buyAnimal(animal);
+                      Navigator.pop(ctx);
+                      _playAnimalSound(animal.id, zooState);
                     },
-                    icon: const Icon(Icons.shopping_cart_rounded, size: 18),
-                    label: const Text('Buy'),
+                    icon: const Icon(Icons.volume_up_rounded),
+                    label: const Text('Play Sound'),
                   ),
-                )
-              else ...[
-                Row(
-                  children: [
-                    Expanded(
-                      child: ChoiceChip(
-                        selected: mode == MyZooSoundMode.original,
-                        label: const Text('Original', overflow: TextOverflow.ellipsis),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (_) {
-                          ref.read(myZooProvider.notifier).setSoundMode(
-                                animal.id,
-                                MyZooSoundMode.original,
-                              );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: ChoiceChip(
-                        selected: mode == MyZooSoundMode.recorded,
-                        label: const Text('My Voice', overflow: TextOverflow.ellipsis),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                        visualDensity: VisualDensity.compact,
-                        onSelected: hasRecording
-                            ? (_) {
-                                ref.read(myZooProvider.notifier).setSoundMode(
-                                      animal.id,
-                                      MyZooSoundMode.recorded,
-                                    );
-                              }
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(38),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          _toggleRecord(animal, zooState);
-                        },
-                        child: Text(
-                          zooState.isRecording && zooState.recordingAnimalId == animal.id
-                              ? 'Stop'
-                              : 'Record',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(38),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          _playAnimal(animal, zooState);
-                        },
-                        child: const Text(
-                          'Play',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
-            ],
+            ),
           ),
-        )
-            .animate()
-            .fadeIn(delay: (i * 40).ms, duration: 220.ms)
-            .scale(begin: const Offset(0.96, 0.96), end: const Offset(1, 1));
+        );
       },
-    );
-  }
-
-  Widget _buildZooDecor() {
-    return Stack(
-      children: const [
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 60,
-          child: ColoredBox(color: Color(0xFF6AB86B)),
-        ),
-        Positioned(
-          left: 18,
-          top: 22,
-          child: Text('🌳', style: TextStyle(fontSize: 34)),
-        ),
-        Positioned(
-          right: 20,
-          top: 28,
-          child: Text('🌴', style: TextStyle(fontSize: 30)),
-        ),
-        Positioned(
-          left: 30,
-          bottom: 18,
-          child: Text('🪨', style: TextStyle(fontSize: 28)),
-        ),
-        Positioned(
-          right: 40,
-          bottom: 16,
-          child: Text('🪨', style: TextStyle(fontSize: 24)),
-        ),
-        Positioned(
-          left: 90,
-          bottom: 20,
-          child: Text('🌿', style: TextStyle(fontSize: 24)),
-        ),
-        Positioned(
-          right: 95,
-          bottom: 24,
-          child: Text('🌿', style: TextStyle(fontSize: 22)),
-        ),
-      ],
-    );
-  }
-}
-
-class _ZooAnimalNode extends StatelessWidget {
-  final Animal animal;
-  final double size;
-  final int coinsPerTick;
-  final int intervalSeconds;
-  final int secondsLeft;
-
-  const _ZooAnimalNode({
-    required this.animal,
-    required this.size,
-    required this.coinsPerTick,
-    required this.intervalSeconds,
-    required this.secondsLeft,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Column(
-        children: [
-          Container(
-            width: size * 0.72,
-            height: size * 0.72,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              animal.emoji,
-              style: TextStyle(fontSize: size * 0.34),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.62),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '+$coinsPerTick/${intervalSeconds}s • ${secondsLeft}s',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.nunito(
-                fontSize: 10,
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
