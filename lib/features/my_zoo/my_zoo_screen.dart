@@ -35,6 +35,8 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
     with SingleTickerProviderStateMixin {
   static const double _animalHalfWidth = 45;
   static const double _animalHalfHeight = 55;
+  static const double _minZoom = 0.75;
+  static const double _maxZoom = 2.2;
 
   // ─── Game loop ───
   late Ticker _ticker;
@@ -48,6 +50,8 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
 
   // ─── Camera ───
   Offset _cameraOffset = Offset.zero;
+  double _zoom = 1.0;
+  double _zoomStart = 1.0;
 
   // ─── Screen size ───
   Size _screenSize = Size.zero;
@@ -125,11 +129,18 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
 
     // Camera follows player (centered)
     if (_screenSize != Size.zero) {
+      final visibleWorldWidth = _screenSize.width / _zoom;
+      final visibleWorldHeight = _screenSize.height / _zoom;
+
       final targetCam = Offset(
-        (_playerPos.dx - _screenSize.width / 2)
-            .clamp(0.0, (ZooWorldData.worldWidth - _screenSize.width).clamp(0.0, double.infinity)),
-        (_playerPos.dy - _screenSize.height / 2)
-            .clamp(0.0, (ZooWorldData.worldHeight - _screenSize.height).clamp(0.0, double.infinity)),
+        (_playerPos.dx - visibleWorldWidth / 2).clamp(
+          0.0,
+          (ZooWorldData.worldWidth - visibleWorldWidth).clamp(0.0, double.infinity),
+        ),
+        (_playerPos.dy - visibleWorldHeight / 2).clamp(
+          0.0,
+          (ZooWorldData.worldHeight - visibleWorldHeight).clamp(0.0, double.infinity),
+        ),
       );
 
       // Smooth camera follow
@@ -144,6 +155,21 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
 
     // Rebuild
     if (mounted) setState(() {});
+  }
+
+  void _onScaleStart(ScaleStartDetails details) {
+    _zoomStart = _zoom;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount < 2) return;
+
+    final nextZoom = (_zoomStart * details.scale).clamp(_minZoom, _maxZoom);
+    if ((nextZoom - _zoom).abs() < 0.001) return;
+
+    setState(() {
+      _zoom = nextZoom;
+    });
   }
 
   void _checkProximity() {
@@ -383,33 +409,69 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
 
   // ─── World layer ───
   Widget _buildWorld(List<Animal> ownedAnimals, MyZooState zooState) {
-    return Positioned(
-      left: -_cameraOffset.dx,
-      top: -_cameraOffset.dy,
-      child: SizedBox(
-        width: ZooWorldData.worldWidth,
-        height: ZooWorldData.worldHeight,
+    return ClipRect(
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onScaleStart: _onScaleStart,
+        onScaleUpdate: _onScaleUpdate,
         child: Stack(
           children: [
-            // Background
-            _buildBackground(zooState),
-
-            // Decorations
-            ..._buildDecorations(),
-
-            // Animals
-            ..._buildAnimals(ownedAnimals, zooState),
-
-            // Player
             Positioned(
-              left: _playerPos.dx - (ZooWorldData.playerSize + 20) / 2,
-              top: _playerPos.dy - (ZooWorldData.playerSize + 36),
-              child: ZooPlayer(
-                isMoving: _joystickDir.distance > 0.15,
-                facingRight: _facingRight,
-                customImagePath: zooState.customPlayerImagePath,
-                size: ZooWorldData.playerSize,
-                bouncePhase: _walkPhase,
+              left: -_cameraOffset.dx * _zoom,
+              top: -_cameraOffset.dy * _zoom,
+              child: Transform.scale(
+                scale: _zoom,
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: ZooWorldData.worldWidth,
+                  height: ZooWorldData.worldHeight,
+                  child: Stack(
+                    children: [
+                      // Background
+                      _buildBackground(zooState),
+
+                      // Decorations
+                      ..._buildDecorations(),
+
+                      // Animals
+                      ..._buildAnimals(ownedAnimals, zooState),
+
+                      // Player
+                      Positioned(
+                        left: _playerPos.dx - (ZooWorldData.playerSize + 20) / 2,
+                        top: _playerPos.dy - (ZooWorldData.playerSize + 36),
+                        child: ZooPlayer(
+                          isMoving: _joystickDir.distance > 0.15,
+                          facingRight: _facingRight,
+                          customImagePath: zooState.customPlayerImagePath,
+                          size: ZooWorldData.playerSize,
+                          bouncePhase: _walkPhase,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 88,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: Text(
+                  '${_zoom.toStringAsFixed(2)}x',
+                  style: GoogleFonts.nunito(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
               ),
             ),
           ],
