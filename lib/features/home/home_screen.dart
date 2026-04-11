@@ -13,7 +13,6 @@ import '../../core/audio/audio_service.dart';
 import '../../core/models/player_stats.dart';
 import '../../core/providers/coin_provider.dart';
 import '../../core/providers/stats_provider.dart';
-import '../../core/providers/daily_challenge_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -25,8 +24,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin {
   late AnimationController _bgAnimController;
-  Timer? _dailyTimer;
-  Duration _timeUntilReset = Duration.zero;
 
   final List<_FloatingEmoji> _floatingEmojis = [];
   final _random = Random();
@@ -55,42 +52,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ));
     }
 
-    // Daily countdown timer
-    _startDailyTimer();
-
-  }
-
-  void _startDailyTimer() {
-    _dailyTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          final now = DateTime.now();
-          final tomorrow = DateTime(now.year, now.month, now.day + 1);
-          _timeUntilReset = tomorrow.difference(now);
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
     _bgAnimController.dispose();
-    _dailyTimer?.cancel();
     super.dispose();
-  }
-
-  String _formatDuration(Duration d) {
-    final h = d.inHours.toString().padLeft(2, '0');
-    final m = (d.inMinutes % 60).toString().padLeft(2, '0');
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$h:$m:$s';
   }
 
   @override
   Widget build(BuildContext context) {
     final coins = ref.watch(coinProvider);
     final stats = ref.watch(statsProvider);
-    final daily = ref.watch(dailyChallengeProvider);
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
@@ -165,36 +138,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 32),
                   // ─── Mode Cards ───
                   _buildModeCard(
-                    emoji: '🎧',
-                    title: 'Guess the Animal',
-                    description: 'Can you identify it?',
-                    gradient: AppColors.primaryGradient,
-                    shadowColor: AppColors.primaryGreen,
-                    onTap: () => _showDifficultyPicker(context),
-                    index: 0,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModeCard(
-                    emoji: '🧩',
-                    title: 'Sound Puzzle',
-                    description: 'Reveal the mystery animal',
-                    gradient: AppColors.secondaryGradient,
-                    shadowColor: AppColors.secondaryOrange,
-                    onTap: () => context.push('/puzzle'),
-                    index: 1,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModeCard(
-                    emoji: '👶',
-                    title: 'Baby Mode',
-                    description: 'Tap & learn!',
-                    gradient: AppColors.accentGradient,
-                    shadowColor: AppColors.accentYellow,
-                    onTap: () => context.push('/baby'),
-                    index: 2,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModeCard(
                     emoji: '🏡',
                     title: 'My Zoo',
                     description: 'Buy animals & use your own recordings',
@@ -205,11 +148,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                     shadowColor: AppColors.primaryGreen,
                     onTap: () => context.push('/my-zoo'),
+                    index: 0,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModeCard(
+                    emoji: '🎧',
+                    title: 'Guess the Animal',
+                    description: 'Can you identify it?',
+                    gradient: AppColors.primaryGradient,
+                    shadowColor: AppColors.primaryGreen,
+                    onTap: () => _showDifficultyPicker(context),
+                    index: 1,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModeCard(
+                    emoji: '🧩',
+                    title: 'Sound Puzzle',
+                    description: 'Reveal the mystery animal',
+                    gradient: AppColors.secondaryGradient,
+                    shadowColor: AppColors.secondaryOrange,
+                    onTap: () => context.push('/puzzle'),
+                    index: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModeCard(
+                    emoji: '👶',
+                    title: 'Baby Mode',
+                    description: 'Tap & learn!',
+                    gradient: AppColors.accentGradient,
+                    shadowColor: AppColors.accentYellow,
+                    onTap: () => context.push('/baby'),
                     index: 3,
                   ),
-                  const SizedBox(height: 24),
-                  // ─── Daily Challenge Banner ───
-                  _buildDailyChallenge(daily),
                   const SizedBox(height: 32),
                 ],
               ),
@@ -387,183 +357,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .animate()
         .fadeIn(delay: (200 + index * 150).ms, duration: 500.ms)
         .slideX(begin: 0.1, end: 0, delay: (200 + index * 150).ms);
-  }
-
-  Widget _buildDailyChallenge(DailyChallengeState daily) {
-    final remainingAttempts = (daily.maxAttempts - daily.attemptsUsed).clamp(0, daily.maxAttempts);
-    final challengeProgress = daily.maxAttempts == 0
-        ? 0.0
-        : (daily.attemptsUsed / daily.maxAttempts).clamp(0.0, 1.0);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primaryDeepGreen,
-            AppColors.primaryGreen,
-            AppColors.secondaryOrange,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: AppColors.glowShadow(AppColors.primaryGreen),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                ),
-                child: const Center(
-                  child: Text('🗿', style: TextStyle(fontSize: 24)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Mystery Totem Challenge',
-                      style: GoogleFonts.fredoka(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Unique sounds today • beat your best score',
-                      style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.85),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-                ),
-                child: Text(
-                  '$remainingAttempts left',
-                  style: GoogleFonts.robotoMono(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            height: 8,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: challengeProgress,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.accentYellow,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Resets in',
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    _formatDuration(_timeUntilReset),
-                    style: GoogleFonts.robotoMono(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Best: ${daily.highScore}',
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.accentYellow,
-                    ),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: daily.isAvailable
-                    ? () async {
-                        HapticFeedback.lightImpact();
-                        final canPlay = await ref
-                            .read(dailyChallengeProvider.notifier)
-                            .consumeAttempt();
-                        if (canPlay && mounted) {
-                          context.push('/guess?daily=true');
-                        }
-                      }
-                    : null,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: daily.isAvailable
-                        ? AppColors.accentYellow
-                        : Colors.white.withValues(alpha: 0.25),
-                    borderRadius:
-                        BorderRadius.circular(AppTheme.radiusPill),
-                  ),
-                  child: Text(
-                    daily.isAvailable ? 'Play Now' : 'Completed',
-                    style: GoogleFonts.fredoka(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: daily.isAvailable
-                          ? AppColors.primaryDeepGreen
-                          : Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 600.ms, duration: 500.ms).slideY(begin: 0.1);
   }
 
   Widget _buildStatsRow(PlayerStats stats) {

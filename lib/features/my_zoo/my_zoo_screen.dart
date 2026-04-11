@@ -520,27 +520,6 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
                 ),
               ),
             ),
-
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 88,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                ),
-                child: Text(
-                  '${_zoom.toStringAsFixed(2)}x',
-                  style: GoogleFonts.nunito(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),
