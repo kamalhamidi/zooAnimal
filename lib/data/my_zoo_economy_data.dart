@@ -22,21 +22,21 @@ class MyZooEconomyData {
   MyZooEconomyData._();
 
   static const ZooEconomyRule _easyDefault = ZooEconomyRule(
-    price: 20,
-    coinsPerTick: 2,
-    intervalSeconds: 20,
+    price: 75,
+    coinsPerTick: 1,
+    intervalSeconds: 45,
   );
 
   static const ZooEconomyRule _mediumDefault = ZooEconomyRule(
-    price: 35,
-    coinsPerTick: 4,
-    intervalSeconds: 30,
+    price: 140,
+    coinsPerTick: 2,
+    intervalSeconds: 65,
   );
 
   static const ZooEconomyRule _hardDefault = ZooEconomyRule(
-    price: 50,
-    coinsPerTick: 7,
-    intervalSeconds: 45,
+    price: 240,
+    coinsPerTick: 3,
+    intervalSeconds: 95,
   );
 
   /// Optional per-animal overrides.
@@ -44,8 +44,8 @@ class MyZooEconomyData {
   /// Example:
   /// `lion: ZooEconomyRule(price: 70, coinsPerTick: 10, intervalSeconds: 40)`
   static const Map<String, ZooEconomyRule> _byAnimalId = {
-    'lion': ZooEconomyRule(price: 60, coinsPerTick: 8, intervalSeconds: 40),
-    'elephant': ZooEconomyRule(price: 65, coinsPerTick: 9, intervalSeconds: 45),
+    'lion': ZooEconomyRule(price: 320, coinsPerTick: 3, intervalSeconds: 110),
+    'elephant': ZooEconomyRule(price: 360, coinsPerTick: 4, intervalSeconds: 120),
   };
 
   static ZooEconomyRule ruleFor(Animal animal) {

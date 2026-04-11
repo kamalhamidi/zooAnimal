@@ -264,10 +264,13 @@ class MyZooNotifier extends StateNotifier<MyZooState> {
         final lastMs = updatedIncome[animalId] ?? nowMs;
         final elapsedMs = nowMs - lastMs;
         final cycles = elapsedMs ~/ intervalMs;
+        final cappedCycles = cycles > 3 ? 3 : cycles;
 
-        if (cycles > 0) {
-          earned += cycles * rule.coinsPerTick;
-          updatedIncome[animalId] = lastMs + (cycles * intervalMs);
+        if (cappedCycles > 0) {
+          final rawPayout = cappedCycles * rule.coinsPerTick;
+          final scaledPayout = _scaledPayout(rawPayout, state.ownedAnimalIds.length);
+          earned += scaledPayout;
+          updatedIncome[animalId] = lastMs + (cappedCycles * intervalMs);
           changed = true;
         }
       }
@@ -283,6 +286,18 @@ class MyZooNotifier extends StateNotifier<MyZooState> {
     } finally {
       _isProcessingIncome = false;
     }
+  }
+
+  int _scaledPayout(int basePayout, int ownedCount) {
+    if (basePayout <= 0) return 0;
+    if (ownedCount <= 1) return basePayout;
+
+    // Makes economy progressively harder as zoo grows.
+    // 2 animals => 95%, 5 => 80%, 10 => 55%, floor at 35%.
+    final penalty = ((ownedCount - 1) * 0.05).clamp(0.0, 0.65);
+    final multiplier = 1.0 - penalty;
+    final scaled = (basePayout * multiplier).floor();
+    return scaled < 1 ? 1 : scaled;
   }
 
   Map<String, Offset> _parseLayout(Map<String, String> raw) {
