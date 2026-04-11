@@ -16,6 +16,7 @@ class ZooPlayer extends StatelessWidget {
   final bool isMoving;
   final bool facingRight;
   final String? customImagePath;
+  final String? defaultAssetImagePath;
   final double size;
   final double bouncePhase; // 0–1 normalised phase for walk cycle
 
@@ -24,6 +25,7 @@ class ZooPlayer extends StatelessWidget {
     required this.isMoving,
     required this.facingRight,
     this.customImagePath,
+    this.defaultAssetImagePath,
     this.size = 54,
     this.bouncePhase = 0,
   });
@@ -88,21 +90,12 @@ class ZooPlayer extends StatelessWidget {
     if (customImagePath != null && customImagePath!.isNotEmpty) {
       final file = File(customImagePath!);
       if (file.existsSync()) {
-        return Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-            image: DecorationImage(
-              image: FileImage(file),
+        return _avatarFrame(
+          child: ClipOval(
+            child: Image.file(
+              file,
+              width: size,
+              height: size,
               fit: BoxFit.cover,
             ),
           ),
@@ -110,7 +103,24 @@ class ZooPlayer extends StatelessWidget {
       }
     }
 
-    // Default emoji avatar
+    if (defaultAssetImagePath != null && defaultAssetImagePath!.isNotEmpty) {
+      return _avatarFrame(
+        child: ClipOval(
+          child: Image.asset(
+            defaultAssetImagePath!,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _emojiAvatar(),
+          ),
+        ),
+      );
+    }
+
+    return _avatarFrame(child: _emojiAvatar());
+  }
+
+  Widget _avatarFrame({required Widget child}) {
     return Container(
       width: size,
       height: size,
@@ -126,7 +136,13 @@ class ZooPlayer extends StatelessWidget {
           ),
         ],
       ),
-      alignment: Alignment.center,
+      child: child,
+    );
+  }
+
+  Widget _emojiAvatar() {
+    // Default emoji avatar
+    return Center(
       child: Text(
         '🧑‍🌾',
         style: TextStyle(fontSize: size * 0.52),

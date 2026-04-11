@@ -33,6 +33,9 @@ class MyZooScreen extends ConsumerStatefulWidget {
 
 class _MyZooScreenState extends ConsumerState<MyZooScreen>
     with SingleTickerProviderStateMixin {
+  // Change this path to your own image in assets/images/
+  static const String _codeAvatarAssetPath = 'assets/images/avatar.png';
+
   static const double _animalHalfWidth = 45;
   static const double _animalHalfHeight = 55;
   static const double _minZoom = 0.75;
@@ -444,6 +447,7 @@ class _MyZooScreenState extends ConsumerState<MyZooScreen>
                           isMoving: _joystickDir.distance > 0.15,
                           facingRight: _facingRight,
                           customImagePath: zooState.customPlayerImagePath,
+                          defaultAssetImagePath: _codeAvatarAssetPath,
                           size: ZooWorldData.playerSize,
                           bouncePhase: _walkPhase,
                         ),
